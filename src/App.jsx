@@ -125,7 +125,8 @@ const responsiveCss = `
     .runology-input,
     .runology-textarea,
     .runology-primary-button,
-    .runology-secondary-button {
+    .runology-secondary-button,
+    .runology-cancel-button {
       font-size: 15px !important;
     }
 
@@ -140,6 +141,15 @@ const responsiveCss = `
 
     .runology-language-switch {
       align-self: flex-start !important;
+    }
+
+    .runology-form-actions {
+      grid-template-columns: 1fr !important;
+    }
+
+    .runology-run-action-row {
+      flex-direction: column !important;
+      align-items: stretch !important;
     }
   }
 `;
@@ -213,6 +223,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [editingRunId, setEditingRunId] = useState(null);
   const [language, setLanguage] = useState(() => {
     const saved = localStorage.getItem("runology-language");
     return saved === "en" ? "en" : "lv";
@@ -250,7 +261,9 @@ export default function App() {
         loggedInAs: "Ielogojies kā",
         logout: "Iziet",
         addRunTitle: "Pievienot skrējienu",
+        editRunTitle: "Labot skrējienu",
         addRunText: "Saglabā savu nākamo aktivitāti.",
+        editRunText: "Maini izvēlētā ieraksta datus un saglabā izmaiņas.",
         date: "Datums",
         distance: "Distance",
         distancePlaceholder: "Piemēram, 5 km",
@@ -259,10 +272,15 @@ export default function App() {
         notes: "Piezīmes",
         notesPlaceholder: "Kā juties, kāds bija temps, laikapstākļi utt.",
         saveRun: "Saglabāt skrējienu",
+        saveChanges: "Saglabāt izmaiņas",
+        cancelEdit: "Atcelt",
         saving: "Saglabā...",
         saveSuccess: "Skrējiens saglabāts.",
+        updateSuccess: "Izmaiņas saglabātas.",
         deleteRun: "Dzēst",
+        editRun: "Labot",
         deleteSuccess: "Skrējiens izdzēsts.",
+        confirmDelete: "Vai tiešām dzēst šo ierakstu?",
         runsTitle: "Mani skrējieni",
         runsText: "Šeit redzi tikai savus ierakstus.",
         loadingRuns: "Ielādē skrējienus...",
@@ -299,7 +317,9 @@ export default function App() {
         loggedInAs: "Logged in as",
         logout: "Log out",
         addRunTitle: "Add run",
+        editRunTitle: "Edit run",
         addRunText: "Save your next activity.",
+        editRunText: "Update the selected entry and save your changes.",
         date: "Date",
         distance: "Distance",
         distancePlaceholder: "For example, 5 km",
@@ -309,10 +329,15 @@ export default function App() {
         notesPlaceholder:
           "How you felt, pace, weather, anything important.",
         saveRun: "Save run",
+        saveChanges: "Save changes",
+        cancelEdit: "Cancel",
         saving: "Saving...",
         saveSuccess: "Run saved.",
+        updateSuccess: "Changes saved.",
         deleteRun: "Delete",
+        editRun: "Edit",
         deleteSuccess: "Run deleted.",
+        confirmDelete: "Are you sure you want to delete this entry?",
         runsTitle: "My runs",
         runsText: "Only your own entries are shown here.",
         loadingRuns: "Loading runs...",
@@ -434,6 +459,31 @@ export default function App() {
     }
   }
 
+  function resetForm() {
+    setDate("");
+    setDistance("");
+    setDuration("");
+    setNotes("");
+    setEditingRunId(null);
+  }
+
+  function handleStartEdit(run) {
+    setEditingRunId(run.id);
+    setDate(run.date || "");
+    setDistance(run.distance || "");
+    setDuration(run.duration || "");
+    setNotes(run.notes || "");
+    setMessage("");
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleCancelEdit() {
+    resetForm();
+    setMessage("");
+    setError("");
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
 
@@ -445,6 +495,31 @@ export default function App() {
     setSaving(true);
     setError("");
     setMessage("");
+
+    if (editingRunId) {
+      const { error } = await supabase
+        .from("runs")
+        .update({
+          date,
+          distance,
+          duration,
+          notes,
+        })
+        .eq("id", editingRunId)
+        .eq("user_id", session.user.id);
+
+      if (error) {
+        setError(error.message);
+        setSaving(false);
+        return;
+      }
+
+      setMessage(text.updateSuccess);
+      resetForm();
+      await fetchRuns();
+      setSaving(false);
+      return;
+    }
 
     const { error } = await supabase.from("runs").insert([
       {
@@ -462,45 +537,42 @@ export default function App() {
       return;
     }
 
-    setDate("");
-    setDistance("");
-    setDuration("");
-    setNotes("");
+    resetForm();
     setMessage(text.saveSuccess);
     await fetchRuns();
     setSaving(false);
   }
 
- async function handleDelete(runId) {
-  if (!session) return;
+  async function handleDelete(runId) {
+    if (!session) return;
 
-  const confirmed = window.confirm(
-    language === "lv"
-      ? "Vai tiešām dzēst šo ierakstu?"
-      : "Are you sure you want to delete this entry?"
-  );
+    const confirmed = window.confirm(text.confirmDelete);
 
-  if (!confirmed) {
-    return;
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+
+    const { error } = await supabase
+      .from("runs")
+      .delete()
+      .eq("id", runId)
+      .eq("user_id", session.user.id);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    if (editingRunId === runId) {
+      resetForm();
+    }
+
+    setMessage(text.deleteSuccess);
+    await fetchRuns();
   }
-
-  setError("");
-  setMessage("");
-
-  const { error } = await supabase
-    .from("runs")
-    .delete()
-    .eq("id", runId)
-    .eq("user_id", session.user.id);
-
-  if (error) {
-    setError(error.message);
-    return;
-  }
-
-  setMessage(text.deleteSuccess);
-  await fetchRuns();
-}
 
   function formatDate(value) {
     if (!value) return "-";
@@ -670,9 +742,11 @@ export default function App() {
           <div className="runology-form-card" style={styles.formCard}>
             <div style={styles.sectionHeader}>
               <h2 className="runology-section-title" style={styles.sectionTitle}>
-                {text.addRunTitle}
+                {editingRunId ? text.editRunTitle : text.addRunTitle}
               </h2>
-              <p style={styles.sectionText}>{text.addRunText}</p>
+              <p style={styles.sectionText}>
+                {editingRunId ? text.editRunText : text.addRunText}
+              </p>
             </div>
 
             <form onSubmit={handleSubmit} style={styles.form}>
@@ -717,14 +791,31 @@ export default function App() {
                 style={styles.textarea}
               />
 
-              <button
-                className="runology-primary-button"
-                type="submit"
-                disabled={saving}
-                style={styles.primaryButton}
-              >
-                {saving ? text.saving : text.saveRun}
-              </button>
+              <div className="runology-form-actions" style={styles.formActions}>
+                <button
+                  className="runology-primary-button"
+                  type="submit"
+                  disabled={saving}
+                  style={styles.primaryButton}
+                >
+                  {saving
+                    ? text.saving
+                    : editingRunId
+                    ? text.saveChanges
+                    : text.saveRun}
+                </button>
+
+                {editingRunId && (
+                  <button
+                    className="runology-cancel-button"
+                    type="button"
+                    onClick={handleCancelEdit}
+                    style={styles.cancelButton}
+                  >
+                    {text.cancelEdit}
+                  </button>
+                )}
+              </div>
             </form>
 
             {message && <div style={styles.successBox}>{message}</div>}
@@ -781,13 +872,26 @@ export default function App() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(run.id)}
-                      style={styles.deleteButton}
+                    <div
+                      className="runology-run-action-row"
+                      style={styles.runActionRow}
                     >
-                      {text.deleteRun}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(run)}
+                        style={styles.editButton}
+                      >
+                        {text.editRun}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(run.id)}
+                        style={styles.deleteButton}
+                      >
+                        {text.deleteRun}
+                      </button>
+                    </div>
 
                     <div style={styles.notesBox}>
                       <span style={styles.infoLabel}>{text.notesLabel}</span>
@@ -1042,6 +1146,13 @@ const styles = {
     display: "grid",
     gap: "10px",
   },
+  formActions: {
+    display: "grid",
+    gridTemplateColumns: "1fr auto",
+    gap: "10px",
+    alignItems: "center",
+    marginTop: "8px",
+  },
   label: {
     fontSize: "14px",
     fontWeight: "700",
@@ -1073,7 +1184,6 @@ const styles = {
     resize: "vertical",
   },
   primaryButton: {
-    marginTop: "8px",
     width: "100%",
     border: "none",
     borderRadius: "14px",
@@ -1095,6 +1205,17 @@ const styles = {
     cursor: "pointer",
     color: "#14532d",
     background: "#f7fcf8",
+  },
+  cancelButton: {
+    border: "1px solid #cfe6d6",
+    borderRadius: "14px",
+    padding: "15px 18px",
+    fontSize: "16px",
+    fontWeight: "700",
+    cursor: "pointer",
+    color: "#14532d",
+    background: "#f7fcf8",
+    whiteSpace: "nowrap",
   },
   logoutButton: {
     border: "1px solid #cfe6d6",
@@ -1196,6 +1317,22 @@ const styles = {
     fontWeight: "700",
     color: "#143524",
   },
+  runActionRow: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+    marginBottom: "12px",
+  },
+  editButton: {
+    border: "none",
+    borderRadius: "12px",
+    padding: "10px 14px",
+    fontSize: "14px",
+    fontWeight: "700",
+    cursor: "pointer",
+    color: "#14532d",
+    background: "#ecfdf3",
+  },
   deleteButton: {
     border: "none",
     borderRadius: "12px",
@@ -1205,7 +1342,6 @@ const styles = {
     cursor: "pointer",
     color: "#b91c1c",
     background: "#fef2f2",
-    marginBottom: "12px",
   },
   notesBox: {
     background: "#fbfefb",
