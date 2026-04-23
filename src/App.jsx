@@ -261,6 +261,8 @@ export default function App() {
         saveRun: "Saglabāt skrējienu",
         saving: "Saglabā...",
         saveSuccess: "Skrējiens saglabāts.",
+        deleteRun: "Dzēst",
+        deleteSuccess: "Skrējiens izdzēsts.",
         runsTitle: "Mani skrējieni",
         runsText: "Šeit redzi tikai savus ierakstus.",
         loadingRuns: "Ielādē skrējienus...",
@@ -309,6 +311,8 @@ export default function App() {
         saveRun: "Save run",
         saving: "Saving...",
         saveSuccess: "Run saved.",
+        deleteRun: "Delete",
+        deleteSuccess: "Run deleted.",
         runsTitle: "My runs",
         runsText: "Only your own entries are shown here.",
         loadingRuns: "Loading runs...",
@@ -466,6 +470,37 @@ export default function App() {
     await fetchRuns();
     setSaving(false);
   }
+
+ async function handleDelete(runId) {
+  if (!session) return;
+
+  const confirmed = window.confirm(
+    language === "lv"
+      ? "Vai tiešām dzēst šo ierakstu?"
+      : "Are you sure you want to delete this entry?"
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setError("");
+  setMessage("");
+
+  const { error } = await supabase
+    .from("runs")
+    .delete()
+    .eq("id", runId)
+    .eq("user_id", session.user.id);
+
+  if (error) {
+    setError(error.message);
+    return;
+  }
+
+  setMessage(text.deleteSuccess);
+  await fetchRuns();
+}
 
   function formatDate(value) {
     if (!value) return "-";
@@ -745,6 +780,14 @@ export default function App() {
                         <span style={styles.infoValue}>{run.duration}</span>
                       </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(run.id)}
+                      style={styles.deleteButton}
+                    >
+                      {text.deleteRun}
+                    </button>
 
                     <div style={styles.notesBox}>
                       <span style={styles.infoLabel}>{text.notesLabel}</span>
@@ -1152,6 +1195,17 @@ const styles = {
     fontSize: "18px",
     fontWeight: "700",
     color: "#143524",
+  },
+  deleteButton: {
+    border: "none",
+    borderRadius: "12px",
+    padding: "10px 14px",
+    fontSize: "14px",
+    fontWeight: "700",
+    cursor: "pointer",
+    color: "#b91c1c",
+    background: "#fef2f2",
+    marginBottom: "12px",
   },
   notesBox: {
     background: "#fbfefb",
