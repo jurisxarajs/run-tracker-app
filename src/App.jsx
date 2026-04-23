@@ -28,20 +28,20 @@ const responsiveCss = `
     .runology-form-card,
     .runology-list-card,
     .runology-loading-card {
-      border-radius: 20px !important;
+      border-radius: 28px !important;
     }
 
     .runology-brand-panel {
       min-height: auto !important;
-      padding: 24px !important;
+      padding: 26px !important;
     }
 
     .runology-auth-card {
-      padding: 20px !important;
+      padding: 22px !important;
     }
 
     .runology-brand-title {
-      font-size: 34px !important;
+      font-size: 36px !important;
     }
 
     .runology-auth-title {
@@ -49,7 +49,7 @@ const responsiveCss = `
     }
 
     .runology-header {
-      padding: 20px !important;
+      padding: 22px !important;
       flex-direction: column !important;
       align-items: stretch !important;
     }
@@ -63,12 +63,12 @@ const responsiveCss = `
     }
 
     .runology-main-grid {
-      gap: 16px !important;
+      gap: 18px !important;
     }
 
     .runology-form-card,
     .runology-list-card {
-      padding: 20px !important;
+      padding: 22px !important;
     }
 
     .runology-run-info-row {
@@ -81,10 +81,6 @@ const responsiveCss = `
 
     .runology-auth-topbar-mobile {
       display: flex !important;
-    }
-
-    .runology-loading-topbar {
-      justify-content: center !important;
     }
   }
 
@@ -99,7 +95,7 @@ const responsiveCss = `
     .runology-form-card,
     .runology-list-card,
     .runology-loading-card {
-      border-radius: 18px !important;
+      border-radius: 24px !important;
     }
 
     .runology-brand-title {
@@ -111,7 +107,7 @@ const responsiveCss = `
     }
 
     .runology-section-title {
-      font-size: 21px !important;
+      font-size: 22px !important;
     }
 
     .runology-run-card {
@@ -216,8 +212,8 @@ function LanguageSwitcher({ language, onChange, dark = false }) {
   const wrapperStyle = dark
     ? {
         ...styles.languageSwitch,
-        background: "rgba(255, 255, 255, 0.12)",
-        border: "1px solid rgba(255, 255, 255, 0.20)",
+        background: "rgba(255, 255, 255, 0.10)",
+        border: "1px solid rgba(255, 255, 255, 0.16)",
       }
     : styles.languageSwitch;
 
@@ -232,7 +228,7 @@ function LanguageSwitcher({ language, onChange, dark = false }) {
     ? {
         ...styles.languageButtonActive,
         background: "#ffffff",
-        color: "#14532d",
+        color: "#163223",
       }
     : styles.languageButtonActive;
 
@@ -369,7 +365,6 @@ export default function App() {
         duration: "Ilgums (min)",
         durationPlaceholder: "Piemēram, 28",
         pace: "Temps",
-        paceAuto: "Aprēķinās automātiski",
         mood: "Sajūta",
         weather: "Laikapstākļi",
         notes: "Piezīmes",
@@ -395,8 +390,6 @@ export default function App() {
         distanceLabel: "Distance",
         durationLabel: "Ilgums",
         paceLabel: "Temps",
-        moodLabel: "Sajūta",
-        weatherLabel: "Weather",
         notesLabel: "Piezīmes",
       },
       en: {
@@ -454,7 +447,6 @@ export default function App() {
         duration: "Duration (min)",
         durationPlaceholder: "For example, 28",
         pace: "Pace",
-        paceAuto: "Calculated automatically",
         mood: "Feeling",
         weather: "Weather",
         notes: "Notes",
@@ -480,8 +472,6 @@ export default function App() {
         distanceLabel: "Distance",
         durationLabel: "Duration",
         paceLabel: "Pace",
-        moodLabel: "Feeling",
-        weatherLabel: "Weather",
         notesLabel: "Notes",
       },
     };
@@ -851,10 +841,7 @@ export default function App() {
       <div className="runology-page" style={styles.page}>
         <div style={styles.centerWrap}>
           <div className="runology-loading-card" style={styles.loadingCard}>
-            <div
-              className="runology-loading-topbar"
-              style={styles.loadingTopBar}
-            >
+            <div className="runology-loading-topbar" style={styles.loadingTopBar}>
               <LanguageSwitcher language={language} onChange={toggleLanguage} />
             </div>
             <div style={styles.logoCircle}>R</div>
@@ -872,7 +859,7 @@ export default function App() {
         <div style={styles.centerWrap}>
           <div
             className="runology-auth-card"
-            style={{ ...styles.authCard, maxWidth: "520px", width: "100%" }}
+            style={{ ...styles.authCard, maxWidth: "560px", width: "100%" }}
           >
             <div
               className="runology-auth-topbar-mobile"
@@ -933,11 +920,7 @@ export default function App() {
             </form>
 
             {message && <div style={styles.successBox}>{message}</div>}
-            {error && (
-              <div style={styles.errorBox}>
-                {text.errorPrefix}: {error}
-              </div>
-            )}
+            {error && <div style={styles.errorBox}>{text.errorPrefix}: {error}</div>}
           </div>
         </div>
       </div>
@@ -949,16 +932,9 @@ export default function App() {
       <div className="runology-page" style={styles.page}>
         <div className="runology-auth-shell" style={styles.authShell}>
           <div className="runology-brand-panel" style={styles.brandPanel}>
-            <div
-              className="runology-auth-topbar-desktop"
-              style={styles.authTopBar}
-            >
+            <div className="runology-auth-topbar-desktop" style={styles.authTopBar}>
               <div style={styles.brandBadge}>{text.brand}</div>
-              <LanguageSwitcher
-                language={language}
-                onChange={toggleLanguage}
-                dark
-              />
+              <LanguageSwitcher language={language} onChange={toggleLanguage} dark />
             </div>
 
             <h1 className="runology-brand-title" style={styles.brandTitle}>
@@ -974,10 +950,7 @@ export default function App() {
           </div>
 
           <div className="runology-auth-card" style={styles.authCard}>
-            <div
-              className="runology-auth-topbar-mobile"
-              style={styles.authCardTopBar}
-            >
+            <div className="runology-auth-topbar-mobile" style={styles.authCardTopBar}>
               <LanguageSwitcher language={language} onChange={toggleLanguage} />
             </div>
 
@@ -1077,11 +1050,7 @@ export default function App() {
             )}
 
             {message && <div style={styles.successBox}>{message}</div>}
-            {error && (
-              <div style={styles.errorBox}>
-                {text.errorPrefix}: {error}
-              </div>
-            )}
+            {error && <div style={styles.errorBox}>{text.errorPrefix}: {error}</div>}
           </div>
         </div>
       </div>
@@ -1102,10 +1071,7 @@ export default function App() {
             </p>
           </div>
 
-          <div
-            className="runology-header-actions"
-            style={styles.headerActions}
-          >
+          <div className="runology-header-actions" style={styles.headerActions}>
             <LanguageSwitcher language={language} onChange={toggleLanguage} />
             <button
               className="runology-logout-button"
@@ -1140,40 +1106,40 @@ export default function App() {
               />
 
               <label style={styles.label}>{text.distance}</label>
-             <input
-  className="runology-input"
-  type="number"
-  step="0.01"
-  min="0"
-  placeholder={text.distancePlaceholder}
-  value={distance}
-  onChange={(e) => {
-    const value = e.target.value.replace(",", ".");
-    if (/^\d*\.?\d{0,2}$/.test(value)) {
-      setDistance(value);
-    }
-  }}
-  required
-  style={styles.input}
-/>
+              <input
+                className="runology-input"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder={text.distancePlaceholder}
+                value={distance}
+                onChange={(e) => {
+                  const value = e.target.value.replace(",", ".");
+                  if (/^\\d*\\.?\\d{0,2}$/.test(value)) {
+                    setDistance(value);
+                  }
+                }}
+                required
+                style={styles.input}
+              />
 
               <label style={styles.label}>{text.duration}</label>
               <input
-  className="runology-input"
-  type="number"
-  step="0.01"
-  min="0"
-  placeholder={text.durationPlaceholder}
-  value={duration}
-  onChange={(e) => {
-    const value = e.target.value.replace(",", ".");
-    if (/^\d*\.?\d{0,2}$/.test(value)) {
-      setDuration(value);
-    }
-  }}
-  required
-  style={styles.input}
-/>
+                className="runology-input"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder={text.durationPlaceholder}
+                value={duration}
+                onChange={(e) => {
+                  const value = e.target.value.replace(",", ".");
+                  if (/^\\d*\\.?\\d{0,2}$/.test(value)) {
+                    setDuration(value);
+                  }
+                }}
+                required
+                style={styles.input}
+              />
 
               <div style={styles.pacePreviewBox}>
                 <span style={styles.infoLabel}>{text.pace}</span>
@@ -1183,11 +1149,7 @@ export default function App() {
               </div>
 
               <label style={styles.label}>{text.mood}</label>
-              <EmojiPicker
-                options={moodOptions}
-                value={mood}
-                onChange={setMood}
-              />
+              <EmojiPicker options={moodOptions} value={mood} onChange={setMood} />
 
               <label style={styles.label}>{text.weather}</label>
               <EmojiPicker
@@ -1233,11 +1195,7 @@ export default function App() {
             </form>
 
             {message && <div style={styles.successBox}>{message}</div>}
-            {error && (
-              <div style={styles.errorBox}>
-                {text.errorPrefix}: {error}
-              </div>
-            )}
+            {error && <div style={styles.errorBox}>{text.errorPrefix}: {error}</div>}
           </div>
 
           <div className="runology-list-card" style={styles.listCard}>
@@ -1272,38 +1230,26 @@ export default function App() {
                       <div style={styles.metaChip}>{run.weather || "☀️"}</div>
                     </div>
 
-                    <div
-                      className="runology-run-info-row"
-                      style={styles.runInfoRow}
-                    >
+                    <div className="runology-run-info-row" style={styles.runInfoRow}>
                       <div style={styles.infoBlock}>
-                        <span style={styles.infoLabel}>
-                          {text.distanceLabel}
-                        </span>
+                        <span style={styles.infoLabel}>{text.distanceLabel}</span>
                         <span style={styles.infoValue}>{run.distance} km</span>
                       </div>
 
                       <div style={styles.infoBlock}>
-                        <span style={styles.infoLabel}>
-                          {text.durationLabel}
-                        </span>
+                        <span style={styles.infoLabel}>{text.durationLabel}</span>
                         <span style={styles.infoValue}>{run.duration} min</span>
                       </div>
 
                       <div style={styles.infoBlock}>
-                        <span style={styles.infoLabel}>
-                          {text.paceLabel}
-                        </span>
+                        <span style={styles.infoLabel}>{text.paceLabel}</span>
                         <span style={styles.infoValue}>
                           {formatPace(run.distance, run.duration)}
                         </span>
                       </div>
                     </div>
 
-                    <div
-                      className="runology-run-action-row"
-                      style={styles.runActionRow}
-                    >
+                    <div className="runology-run-action-row" style={styles.runActionRow}>
                       <button
                         type="button"
                         onClick={() => handleStartEdit(run)}
@@ -1323,9 +1269,7 @@ export default function App() {
 
                     <div style={styles.notesBox}>
                       <span style={styles.infoLabel}>{text.notesLabel}</span>
-                      <p style={styles.notesText}>
-                        {run.notes || text.noNotes}
-                      </p>
+                      <p style={styles.notesText}>{run.notes || text.noNotes}</p>
                     </div>
                   </div>
                 ))}
@@ -1342,8 +1286,9 @@ const styles = {
   page: {
     minHeight: "100vh",
     background:
-      "linear-gradient(180deg, #f3fbf5 0%, #ecf8ef 45%, #e3f3e7 100%)",
-    fontFamily: 'Inter, Arial, "Helvetica Neue", Helvetica, sans-serif',
+      "radial-gradient(circle at top left, #fcfffd 0%, #f3f6f4 45%, #edf1ee 100%)",
+    fontFamily:
+      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     padding: "24px",
     boxSizing: "border-box",
   },
@@ -1355,13 +1300,15 @@ const styles = {
   },
   loadingCard: {
     width: "100%",
-    maxWidth: "420px",
-    background: "#ffffff",
-    borderRadius: "24px",
-    padding: "22px 28px 40px",
+    maxWidth: "440px",
+    background: "rgba(255,255,255,0.78)",
+    backdropFilter: "blur(18px)",
+    WebkitBackdropFilter: "blur(18px)",
+    borderRadius: "34px",
+    padding: "24px 30px 42px",
     textAlign: "center",
-    boxShadow: "0 20px 50px rgba(35, 90, 52, 0.12)",
-    border: "1px solid #d9efdf",
+    boxShadow: "0 24px 80px rgba(17, 24, 18, 0.08)",
+    border: "1px solid rgba(255,255,255,0.82)",
   },
   loadingTopBar: {
     display: "flex",
@@ -1369,10 +1316,10 @@ const styles = {
     marginBottom: "16px",
   },
   logoCircle: {
-    width: "72px",
-    height: "72px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #22c55e 0%, #15803d 100%)",
+    width: "80px",
+    height: "80px",
+    borderRadius: "28px",
+    background: "linear-gradient(135deg, #264734 0%, #3e6b50 100%)",
     color: "#ffffff",
     display: "flex",
     alignItems: "center",
@@ -1380,22 +1327,24 @@ const styles = {
     fontSize: "30px",
     fontWeight: "800",
     margin: "0 auto 18px",
+    boxShadow: "0 18px 36px rgba(30, 53, 40, 0.22)",
   },
   loadingTitle: {
     margin: "0 0 8px 0",
-    fontSize: "34px",
-    color: "#123524",
+    fontSize: "36px",
+    letterSpacing: "-0.04em",
+    color: "#17231b",
   },
   loadingText: {
     margin: 0,
-    color: "#4b6b58",
+    color: "#657067",
     fontSize: "16px",
   },
   authShell: {
-    maxWidth: "1160px",
+    maxWidth: "1180px",
     margin: "0 auto",
     display: "grid",
-    gridTemplateColumns: "1.1fr 0.9fr",
+    gridTemplateColumns: "1.08fr 0.92fr",
     gap: "24px",
     alignItems: "stretch",
   },
@@ -1407,38 +1356,41 @@ const styles = {
     marginBottom: "20px",
   },
   brandPanel: {
-    background: "linear-gradient(135deg, #14532d 0%, #166534 45%, #22c55e 100%)",
+    background:
+      "linear-gradient(145deg, rgba(20,29,23,0.96) 0%, rgba(34,53,42,0.94) 45%, rgba(68,96,79,0.90) 100%)",
     color: "#ffffff",
-    borderRadius: "28px",
-    padding: "42px",
-    boxShadow: "0 24px 60px rgba(21, 72, 40, 0.22)",
-    minHeight: "620px",
+    borderRadius: "38px",
+    padding: "48px",
+    boxShadow: "0 30px 90px rgba(16, 24, 20, 0.20)",
+    minHeight: "650px",
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
+    border: "1px solid rgba(255,255,255,0.08)",
   },
   brandBadge: {
     display: "inline-block",
     alignSelf: "flex-start",
-    background: "rgba(255, 255, 255, 0.14)",
-    border: "1px solid rgba(255, 255, 255, 0.2)",
+    background: "rgba(255, 255, 255, 0.10)",
+    border: "1px solid rgba(255, 255, 255, 0.14)",
     borderRadius: "999px",
-    padding: "8px 14px",
+    padding: "9px 15px",
     fontSize: "12px",
     fontWeight: "700",
-    letterSpacing: "1.4px",
+    letterSpacing: "1.5px",
   },
   brandTitle: {
-    fontSize: "52px",
-    lineHeight: 1.04,
+    fontSize: "58px",
+    lineHeight: 1.02,
     margin: "0 0 18px 0",
-    maxWidth: "520px",
+    maxWidth: "540px",
+    letterSpacing: "-0.05em",
   },
   brandText: {
     fontSize: "18px",
-    lineHeight: 1.7,
-    color: "rgba(255, 255, 255, 0.88)",
-    margin: "0 0 28px 0",
+    lineHeight: 1.8,
+    color: "rgba(255, 255, 255, 0.82)",
+    margin: "0 0 30px 0",
     maxWidth: "520px",
   },
   featureList: {
@@ -1447,20 +1399,23 @@ const styles = {
     marginTop: "10px",
   },
   featureItem: {
-    background: "rgba(255, 255, 255, 0.10)",
-    border: "1px solid rgba(255, 255, 255, 0.14)",
-    borderRadius: "16px",
+    background: "rgba(255, 255, 255, 0.07)",
+    border: "1px solid rgba(255, 255, 255, 0.10)",
+    borderRadius: "20px",
     padding: "14px 16px",
     fontSize: "15px",
     fontWeight: "600",
-    maxWidth: "420px",
+    maxWidth: "430px",
+    backdropFilter: "blur(10px)",
   },
   authCard: {
-    background: "#ffffff",
-    borderRadius: "28px",
-    padding: "24px 34px 34px",
-    boxShadow: "0 20px 50px rgba(35, 90, 52, 0.12)",
-    border: "1px solid #d9efdf",
+    background: "rgba(255,255,255,0.82)",
+    backdropFilter: "blur(18px)",
+    WebkitBackdropFilter: "blur(18px)",
+    borderRadius: "34px",
+    padding: "26px 36px 36px",
+    boxShadow: "0 24px 80px rgba(17, 24, 18, 0.07)",
+    border: "1px solid rgba(255,255,255,0.82)",
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
@@ -1471,29 +1426,32 @@ const styles = {
     marginBottom: "8px",
   },
   authHeader: {
-    marginBottom: "24px",
+    marginBottom: "26px",
   },
   authTitle: {
     margin: "0 0 8px 0",
-    fontSize: "32px",
-    color: "#123524",
+    fontSize: "34px",
+    color: "#17231b",
+    letterSpacing: "-0.04em",
   },
   authSubtitle: {
     margin: 0,
-    color: "#5a7764",
+    color: "#6a756d",
     fontSize: "15px",
-    lineHeight: 1.6,
+    lineHeight: 1.7,
   },
   appShell: {
-    maxWidth: "1240px",
+    maxWidth: "1260px",
     margin: "0 auto",
   },
   header: {
-    background: "#ffffff",
-    borderRadius: "24px",
-    padding: "28px 30px",
-    boxShadow: "0 18px 46px rgba(35, 90, 52, 0.10)",
-    border: "1px solid #d9efdf",
+    background: "rgba(255,255,255,0.84)",
+    backdropFilter: "blur(18px)",
+    WebkitBackdropFilter: "blur(18px)",
+    borderRadius: "32px",
+    padding: "30px 32px",
+    boxShadow: "0 20px 60px rgba(17, 24, 18, 0.06)",
+    border: "1px solid rgba(255,255,255,0.82)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1514,23 +1472,25 @@ const styles = {
     display: "inline-block",
     padding: "7px 12px",
     borderRadius: "999px",
-    background: "#ecfdf3",
-    color: "#15803d",
+    background: "#f6f8f6",
+    color: "#2d4236",
     fontSize: "12px",
     fontWeight: "800",
     letterSpacing: "1.2px",
     marginBottom: "10px",
+    border: "1px solid #e7ece8",
   },
   appTitle: {
     margin: "0 0 8px 0",
-    fontSize: "34px",
-    color: "#123524",
+    fontSize: "36px",
+    color: "#17231b",
+    letterSpacing: "-0.05em",
   },
   appSubtitle: {
     margin: 0,
-    color: "#567160",
+    color: "#69756c",
     fontSize: "15px",
-    lineHeight: 1.5,
+    lineHeight: 1.6,
     wordBreak: "break-word",
   },
   mainGrid: {
@@ -1540,35 +1500,40 @@ const styles = {
     alignItems: "start",
   },
   formCard: {
-    background: "#ffffff",
-    borderRadius: "24px",
-    padding: "26px",
-    boxShadow: "0 18px 46px rgba(35, 90, 52, 0.10)",
-    border: "1px solid #d9efdf",
+    background: "rgba(255,255,255,0.84)",
+    backdropFilter: "blur(18px)",
+    WebkitBackdropFilter: "blur(18px)",
+    borderRadius: "32px",
+    padding: "28px",
+    boxShadow: "0 20px 60px rgba(17, 24, 18, 0.06)",
+    border: "1px solid rgba(255,255,255,0.82)",
     position: "sticky",
     top: "24px",
   },
   listCard: {
-    background: "#ffffff",
-    borderRadius: "24px",
-    padding: "26px",
-    boxShadow: "0 18px 46px rgba(35, 90, 52, 0.10)",
-    border: "1px solid #d9efdf",
+    background: "rgba(255,255,255,0.84)",
+    backdropFilter: "blur(18px)",
+    WebkitBackdropFilter: "blur(18px)",
+    borderRadius: "32px",
+    padding: "28px",
+    boxShadow: "0 20px 60px rgba(17, 24, 18, 0.06)",
+    border: "1px solid rgba(255,255,255,0.82)",
     minHeight: "500px",
   },
   sectionHeader: {
-    marginBottom: "18px",
+    marginBottom: "20px",
   },
   sectionTitle: {
     margin: "0 0 6px 0",
-    fontSize: "24px",
-    color: "#123524",
+    fontSize: "26px",
+    color: "#17231b",
+    letterSpacing: "-0.04em",
   },
   sectionText: {
     margin: 0,
-    color: "#60806b",
+    color: "#728077",
     fontSize: "14px",
-    lineHeight: 1.6,
+    lineHeight: 1.7,
   },
   form: {
     display: "grid",
@@ -1579,50 +1544,53 @@ const styles = {
     gridTemplateColumns: "1fr auto",
     gap: "10px",
     alignItems: "center",
-    marginTop: "8px",
+    marginTop: "10px",
   },
   label: {
     fontSize: "14px",
     fontWeight: "700",
-    color: "#24543a",
-    marginTop: "4px",
+    color: "#304438",
+    marginTop: "6px",
   },
   input: {
     width: "100%",
     boxSizing: "border-box",
-    padding: "14px 16px",
+    padding: "15px 16px",
     fontSize: "16px",
-    borderRadius: "14px",
-    border: "1px solid #cfe6d6",
-    background: "#f9fefb",
+    borderRadius: "20px",
+    border: "1px solid #e4eae6",
+    background: "rgba(252,253,252,0.98)",
     outline: "none",
-    color: "#143524",
+    color: "#17231b",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.92)",
   },
   textarea: {
     width: "100%",
     boxSizing: "border-box",
-    padding: "14px 16px",
+    padding: "15px 16px",
     fontSize: "16px",
-    borderRadius: "14px",
-    border: "1px solid #cfe6d6",
-    background: "#f9fefb",
+    borderRadius: "20px",
+    border: "1px solid #e4eae6",
+    background: "rgba(252,253,252,0.98)",
     outline: "none",
-    color: "#143524",
-    minHeight: "120px",
+    color: "#17231b",
+    minHeight: "124px",
     resize: "vertical",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.92)",
   },
   pacePreviewBox: {
-    background: "#f6fbf7",
-    border: "1px solid #e1f1e5",
-    borderRadius: "16px",
-    padding: "14px",
-    marginTop: "4px",
+    background: "linear-gradient(180deg, #fbfcfb 0%, #f5f7f5 100%)",
+    border: "1px solid #eaefeb",
+    borderRadius: "22px",
+    padding: "16px",
+    marginTop: "6px",
   },
   pacePreviewValue: {
-    fontSize: "18px",
+    fontSize: "20px",
     fontWeight: "700",
-    color: "#143524",
+    color: "#17231b",
     marginTop: "6px",
+    letterSpacing: "-0.02em",
   },
   emojiRow: {
     display: "flex",
@@ -1630,27 +1598,28 @@ const styles = {
     gap: "10px",
   },
   emojiButton: {
-    border: "1px solid #d7ebdd",
-    background: "#f7fcf8",
-    borderRadius: "14px",
-    minWidth: "48px",
-    minHeight: "48px",
+    border: "1px solid #e7ece8",
+    background: "rgba(251,252,251,0.98)",
+    borderRadius: "18px",
+    minWidth: "50px",
+    minHeight: "50px",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    boxShadow: "0 8px 18px rgba(17, 24, 18, 0.03)",
   },
   emojiButtonActive: {
-    border: "1px solid #16a34a",
-    background: "#ecfdf3",
-    borderRadius: "14px",
-    minWidth: "48px",
-    minHeight: "48px",
+    border: "1px solid #40584a",
+    background: "linear-gradient(180deg, #ffffff 0%, #f3f6f4 100%)",
+    borderRadius: "18px",
+    minWidth: "50px",
+    minHeight: "50px",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0 6px 14px rgba(22, 163, 74, 0.12)",
+    boxShadow: "0 12px 24px rgba(17, 24, 18, 0.08)",
   },
   emojiIcon: {
     fontSize: "24px",
@@ -1659,98 +1628,98 @@ const styles = {
   primaryButton: {
     width: "100%",
     border: "none",
-    borderRadius: "14px",
+    borderRadius: "20px",
     padding: "15px 18px",
     fontSize: "16px",
     fontWeight: "700",
     cursor: "pointer",
     color: "#ffffff",
-    background: "linear-gradient(135deg, #16a34a 0%, #15803d 100%)",
-    boxShadow: "0 12px 24px rgba(22, 163, 74, 0.22)",
+    background: "linear-gradient(135deg, #203428 0%, #3a5244 100%)",
+    boxShadow: "0 18px 30px rgba(25, 38, 30, 0.16)",
   },
   secondaryButton: {
     width: "100%",
-    border: "1px solid #cfe6d6",
-    borderRadius: "14px",
+    border: "1px solid #e2e8e4",
+    borderRadius: "20px",
     padding: "15px 18px",
     fontSize: "16px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#14532d",
-    background: "#f7fcf8",
+    color: "#203428",
+    background: "rgba(252,253,252,0.98)",
   },
   cancelButton: {
-    border: "1px solid #cfe6d6",
-    borderRadius: "14px",
+    border: "1px solid #e2e8e4",
+    borderRadius: "20px",
     padding: "15px 18px",
     fontSize: "16px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#14532d",
-    background: "#f7fcf8",
+    color: "#203428",
+    background: "rgba(252,253,252,0.98)",
     whiteSpace: "nowrap",
   },
   linkButton: {
     border: "none",
     background: "transparent",
-    padding: "8px 0",
+    padding: "8px 2px",
     fontSize: "14px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#15803d",
+    color: "#2f4a3a",
     textAlign: "left",
   },
   logoutButton: {
-    border: "1px solid #cfe6d6",
-    borderRadius: "14px",
+    border: "1px solid #e2e8e4",
+    borderRadius: "20px",
     padding: "12px 18px",
     fontSize: "15px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#14532d",
-    background: "#f7fcf8",
+    color: "#203428",
+    background: "rgba(252,253,252,0.98)",
     whiteSpace: "nowrap",
   },
   successBox: {
     marginTop: "16px",
     padding: "14px 16px",
-    borderRadius: "14px",
-    background: "#ecfdf3",
-    color: "#166534",
-    border: "1px solid #bbf7d0",
+    borderRadius: "20px",
+    background: "linear-gradient(180deg, #f7faf8 0%, #f1f5f2 100%)",
+    color: "#23362b",
+    border: "1px solid #e3ebe6",
     fontSize: "14px",
-    lineHeight: 1.5,
+    lineHeight: 1.6,
   },
   errorBox: {
     marginTop: "16px",
     padding: "14px 16px",
-    borderRadius: "14px",
-    background: "#fef2f2",
-    color: "#b91c1c",
-    border: "1px solid #fecaca",
+    borderRadius: "20px",
+    background: "linear-gradient(180deg, #fff8f8 0%, #fdf2f2 100%)",
+    color: "#a11d1d",
+    border: "1px solid #f0d9d9",
     fontSize: "14px",
-    lineHeight: 1.5,
+    lineHeight: 1.6,
     wordBreak: "break-word",
   },
   emptyState: {
-    padding: "28px",
-    borderRadius: "18px",
-    background: "#f7fcf8",
-    border: "1px dashed #cfe6d6",
-    color: "#5f7a68",
+    padding: "34px",
+    borderRadius: "24px",
+    background: "linear-gradient(180deg, #fcfdfc 0%, #f5f7f5 100%)",
+    border: "1px dashed #e3e9e5",
+    color: "#6d7a72",
     fontSize: "15px",
     textAlign: "center",
   },
   runList: {
     display: "grid",
-    gap: "16px",
+    gap: "18px",
   },
   runCard: {
-    borderRadius: "20px",
-    padding: "20px",
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fdf9 100%)",
-    border: "1px solid #d9efdf",
-    boxShadow: "0 10px 24px rgba(35, 90, 52, 0.06)",
+    borderRadius: "28px",
+    padding: "22px",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,249,248,0.98) 100%)",
+    border: "1px solid #ebefec",
+    boxShadow: "0 16px 34px rgba(17, 24, 18, 0.04)",
   },
   runTopRow: {
     display: "flex",
@@ -1763,15 +1732,17 @@ const styles = {
   runDate: {
     fontSize: "18px",
     fontWeight: "800",
-    color: "#143524",
+    color: "#17231b",
+    letterSpacing: "-0.02em",
   },
   runPill: {
     padding: "8px 12px",
     borderRadius: "999px",
-    background: "#ecfdf3",
-    color: "#15803d",
+    background: "#f6f8f6",
+    color: "#31463a",
     fontWeight: "800",
     fontSize: "13px",
+    border: "1px solid #e7ece8",
   },
   metaChipRow: {
     display: "flex",
@@ -1779,15 +1750,16 @@ const styles = {
     marginBottom: "14px",
   },
   metaChip: {
-    minWidth: "40px",
-    height: "40px",
+    minWidth: "42px",
+    height: "42px",
     borderRadius: "999px",
-    background: "#f6fbf7",
-    border: "1px solid #e1f1e5",
+    background: "linear-gradient(180deg, #ffffff 0%, #f4f6f4 100%)",
+    border: "1px solid #eaefeb",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: "20px",
+    boxShadow: "0 6px 14px rgba(17, 24, 18, 0.03)",
   },
   runInfoRow: {
     display: "grid",
@@ -1796,9 +1768,9 @@ const styles = {
     marginBottom: "14px",
   },
   infoBlock: {
-    background: "#f6fbf7",
-    border: "1px solid #e1f1e5",
-    borderRadius: "16px",
+    background: "linear-gradient(180deg, #fcfdfc 0%, #f6f8f6 100%)",
+    border: "1px solid #eaefeb",
+    borderRadius: "20px",
     padding: "14px",
     display: "flex",
     flexDirection: "column",
@@ -1809,12 +1781,13 @@ const styles = {
     fontWeight: "800",
     letterSpacing: "0.4px",
     textTransform: "uppercase",
-    color: "#6a8572",
+    color: "#708077",
   },
   infoValue: {
     fontSize: "18px",
     fontWeight: "700",
-    color: "#143524",
+    color: "#17231b",
+    letterSpacing: "-0.02em",
   },
   runActionRow: {
     display: "flex",
@@ -1824,35 +1797,35 @@ const styles = {
   },
   editButton: {
     border: "none",
-    borderRadius: "12px",
-    padding: "10px 14px",
+    borderRadius: "15px",
+    padding: "11px 14px",
     fontSize: "14px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#14532d",
-    background: "#ecfdf3",
+    color: "#203428",
+    background: "linear-gradient(180deg, #f6f8f6 0%, #eef2ef 100%)",
   },
   deleteButton: {
     border: "none",
-    borderRadius: "12px",
-    padding: "10px 14px",
+    borderRadius: "15px",
+    padding: "11px 14px",
     fontSize: "14px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#b91c1c",
-    background: "#fef2f2",
+    color: "#9a1c1c",
+    background: "linear-gradient(180deg, #fff7f7 0%, #fdf0f0 100%)",
   },
   notesBox: {
-    background: "#fbfefb",
-    border: "1px solid #e7f3ea",
-    borderRadius: "16px",
-    padding: "14px",
+    background: "linear-gradient(180deg, #fdfefd 0%, #f7f9f7 100%)",
+    border: "1px solid #eaefeb",
+    borderRadius: "20px",
+    padding: "15px",
   },
   notesText: {
     margin: "8px 0 0 0",
     fontSize: "15px",
-    lineHeight: 1.6,
-    color: "#355544",
+    lineHeight: 1.7,
+    color: "#3a4e43",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   },
@@ -1860,15 +1833,16 @@ const styles = {
     display: "inline-flex",
     alignItems: "center",
     gap: "4px",
-    background: "#f4fbf6",
-    border: "1px solid #d7ebdd",
+    background: "rgba(248,249,248,0.98)",
+    border: "1px solid #e6ebe7",
     borderRadius: "999px",
     padding: "4px",
+    boxShadow: "0 8px 18px rgba(17, 24, 18, 0.03)",
   },
   languageButton: {
     border: "none",
     background: "transparent",
-    color: "#24543a",
+    color: "#32473b",
     borderRadius: "999px",
     padding: "8px 12px",
     fontSize: "13px",
@@ -1877,13 +1851,13 @@ const styles = {
   },
   languageButtonActive: {
     border: "none",
-    background: "#15803d",
+    background: "#22392c",
     color: "#ffffff",
     borderRadius: "999px",
     padding: "8px 12px",
     fontSize: "13px",
     fontWeight: "800",
     cursor: "pointer",
-    boxShadow: "0 6px 12px rgba(21, 128, 61, 0.18)",
+    boxShadow: "0 10px 18px rgba(17, 24, 18, 0.12)",
   },
 };
