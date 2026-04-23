@@ -3,6 +3,9 @@ import { supabase } from "./supabase";
 
 const responsiveCss = `
   @media (max-width: 1080px) {
+.runology-stats-grid {
+  grid-template-columns: 1fr !important;
+    }
     .runology-auth-shell {
       grid-template-columns: 1fr !important;
       min-height: auto !important;
@@ -23,6 +26,9 @@ const responsiveCss = `
   }
 
   @media (max-width: 768px) {
+  .runology-stats-grid {
+  grid-template-columns: 1fr !important;
+} 
     .runology-page {
       padding: 14px !important;
     }
@@ -497,6 +503,41 @@ export default function App() {
     ],
     [language]
   );
+
+const stats = useMemo(() => {
+  const totalRuns = runs.length;
+
+  const totalDistance = runs.reduce((sum, run) => {
+    const value = parseFloat(String(run.distance).replace(",", "."));
+    return Number.isNaN(value) ? sum : sum + value;
+  }, 0);
+
+  const totalDuration = runs.reduce((sum, run) => {
+    const value = parseFloat(String(run.duration).replace(",", "."));
+    return Number.isNaN(value) ? sum : sum + value;
+  }, 0);
+
+  let averagePace = text.invalidPace;
+
+  if (totalDistance > 0 && totalDuration > 0) {
+    const totalMinutesPerKm = totalDuration / totalDistance;
+    let minutes = Math.floor(totalMinutesPerKm);
+    let seconds = Math.round((totalMinutesPerKm - minutes) * 60);
+
+    if (seconds === 60) {
+      minutes += 1;
+      seconds = 0;
+    }
+
+    averagePace = `${minutes}:${String(seconds).padStart(2, "0")} / km`;
+  }
+
+  return {
+    totalRuns,
+    totalDistance: totalDistance.toFixed(2),
+    averagePace,
+  };
+}, [runs, text.invalidPace]);
 
   useEffect(() => {
     const hash = typeof window !== "undefined" ? window.location.hash || "" : "";
@@ -1223,6 +1264,29 @@ export default function App() {
           </div>
         </header>
 
+<div className="runology-stats-grid" style={styles.statsGrid}>
+  <div style={styles.statCard}>
+    <span style={styles.statLabel}>
+      {language === "lv" ? "Skrējieni" : "Runs"}
+    </span>
+    <span style={styles.statValue}>{stats.totalRuns}</span>
+  </div>
+
+  <div style={styles.statCard}>
+    <span style={styles.statLabel}>
+      {language === "lv" ? "Kopējā distance" : "Total distance"}
+    </span>
+    <span style={styles.statValue}>{stats.totalDistance} km</span>
+  </div>
+
+  <div style={styles.statCard}>
+    <span style={styles.statLabel}>
+      {language === "lv" ? "Vidējais temps" : "Average pace"}
+    </span>
+    <span style={styles.statValue}>{stats.averagePace}</span>
+  </div>
+</div>
+
         <section className="runology-main-grid" style={styles.mainGrid}>
           <div className="runology-form-card" style={styles.formCard}>
             <div style={styles.sectionHeader}>
@@ -1660,6 +1724,38 @@ const styles = {
     gap: "24px",
     alignItems: "start",
   },
+  statsGrid: {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "16px",
+  marginBottom: "24px",
+},
+
+statCard: {
+  background: "#1b1b1b",
+  borderRadius: "20px",
+  padding: "20px",
+  border: "1px solid #292929",
+  boxShadow: "0 20px 60px rgba(0, 0, 0, 0.18)",
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+},
+
+statLabel: {
+  fontSize: "13px",
+  fontWeight: "800",
+  letterSpacing: "0.4px",
+  textTransform: "uppercase",
+  color: "#b8aa95",
+},
+
+statValue: {
+  fontSize: "28px",
+  fontWeight: "800",
+  color: "#f6efe5",
+  letterSpacing: "-0.03em",
+},
   formCard: {
     background: "#1b1b1b",
     borderRadius: "24px",
