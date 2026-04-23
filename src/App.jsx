@@ -126,7 +126,8 @@ const responsiveCss = `
     .runology-textarea,
     .runology-primary-button,
     .runology-secondary-button,
-    .runology-cancel-button {
+    .runology-cancel-button,
+    .runology-link-button {
       font-size: 15px !important;
     }
 
@@ -151,6 +152,15 @@ const responsiveCss = `
       flex-direction: column !important;
       align-items: stretch !important;
     }
+
+    .runology-emoji-row {
+      gap: 8px !important;
+    }
+
+    .runology-emoji-button {
+      min-width: 44px !important;
+      min-height: 44px !important;
+    }
   }
 `;
 
@@ -162,6 +172,44 @@ if (
   styleTag.id = "runology-responsive-styles";
   styleTag.innerHTML = responsiveCss;
   document.head.appendChild(styleTag);
+}
+
+function formatSupabaseError(errorMessage, language) {
+  if (!errorMessage) return "";
+
+  const normalized = errorMessage.toLowerCase();
+
+  if (normalized.includes("email rate limit exceeded")) {
+    return language === "lv"
+      ? "Pārāk daudz mēģinājumu. Lūdzu, pagaidi un mēģini vēlreiz vēlāk."
+      : "Too many attempts. Please wait and try again later.";
+  }
+
+  if (normalized.includes("invalid login credentials")) {
+    return language === "lv"
+      ? "Nepareizs e-pasts vai parole."
+      : "Incorrect email or password.";
+  }
+
+  if (normalized.includes("user already registered")) {
+    return language === "lv"
+      ? "Šāds lietotājs jau ir reģistrēts."
+      : "This user is already registered.";
+  }
+
+  if (normalized.includes("password should be at least")) {
+    return language === "lv"
+      ? "Parole ir pārāk īsa."
+      : "Password is too short.";
+  }
+
+  if (normalized.includes("same password")) {
+    return language === "lv"
+      ? "Jaunā parole nedrīkst būt tāda pati kā iepriekšējā."
+      : "The new password must be different from the old one.";
+  }
+
+  return errorMessage;
 }
 
 function LanguageSwitcher({ language, onChange, dark = false }) {
@@ -208,6 +256,29 @@ function LanguageSwitcher({ language, onChange, dark = false }) {
   );
 }
 
+function EmojiPicker({ options, value, onChange }) {
+  return (
+    <div className="runology-emoji-row" style={styles.emojiRow}>
+      {options.map((option) => {
+        const isActive = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            className="runology-emoji-button"
+            onClick={() => onChange(option.value)}
+            style={isActive ? styles.emojiButtonActive : styles.emojiButton}
+            title={option.label}
+            aria-label={option.label}
+          >
+            <span style={styles.emojiIcon}>{option.emoji}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [runs, setRuns] = useState([]);
@@ -215,15 +286,22 @@ export default function App() {
   const [distance, setDistance] = useState("");
   const [duration, setDuration] = useState("");
   const [notes, setNotes] = useState("");
+  const [mood, setMood] = useState("🙂");
+  const [weather, setWeather] = useState("☀️");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [pageLoading, setPageLoading] = useState(true);
   const [runsLoading, setRunsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [updatePasswordLoading, setUpdatePasswordLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [editingRunId, setEditingRunId] = useState(null);
+  const [authMode, setAuthMode] = useState("login");
   const [language, setLanguage] = useState(() => {
     const saved = localStorage.getItem("runology-language");
     return saved === "en" ? "en" : "lv";
@@ -247,16 +325,37 @@ export default function App() {
         authTitle: "Ieiet vai reģistrēties",
         authSubtitle:
           "Izmanto savu e-pastu un paroli, lai piekļūtu saviem skrējieniem.",
+        resetTitle: "Atjaunot paroli",
+        resetSubtitle:
+          "Ievadi savu e-pastu, un mēs nosūtīsim paroles atjaunošanas saiti.",
+        updatePasswordTitle: "Iestatīt jaunu paroli",
+        updatePasswordSubtitle:
+          "Ievadi jauno paroli, lai pabeigtu paroles maiņu.",
         email: "E-pasts",
         emailPlaceholder: "piemers@gmail.com",
         password: "Parole",
         passwordPlaceholder: "Tava parole",
+        newPassword: "Jaunā parole",
+        newPasswordPlaceholder: "Ievadi jauno paroli",
+        confirmPassword: "Atkārto jauno paroli",
+        confirmPasswordPlaceholder: "Ievadi to pašu paroli vēlreiz",
+        passwordsDoNotMatch: "Paroles nesakrīt.",
         signIn: "Ieiet",
         signUp: "Izveidot kontu",
         signing: "Notiek...",
         signUpSuccess:
           "Konts izveidots. Pārbaudi e-pastu un apstiprini reģistrāciju.",
         signInSuccess: "Veiksmīgi ielogojies.",
+        forgotPassword: "Aizmirsu paroli",
+        sendReset: "Nosūtīt atjaunošanas saiti",
+        resetSending: "Sūta...",
+        resetSuccess:
+          "Paroles atjaunošanas e-pasts nosūtīts. Pārbaudi savu pastkasti.",
+        backToLogin: "Atpakaļ uz ieeju",
+        updatePasswordButton: "Saglabāt jauno paroli",
+        updatingPassword: "Saglabā...",
+        updatePasswordSuccess:
+          "Parole nomainīta. Tagad vari ieiet ar jauno paroli.",
         headerTitle: "Tavi skrējieni vienuviet",
         loggedInAs: "Ielogojies kā",
         logout: "Iziet",
@@ -265,12 +364,16 @@ export default function App() {
         addRunText: "Saglabā savu nākamo aktivitāti.",
         editRunText: "Maini izvēlētā ieraksta datus un saglabā izmaiņas.",
         date: "Datums",
-        distance: "Distance",
-        distancePlaceholder: "Piemēram, 5 km",
-        duration: "Ilgums",
-        durationPlaceholder: "Piemēram, 28 min",
+        distance: "Distance (km)",
+        distancePlaceholder: "Piemēram, 5",
+        duration: "Ilgums (min)",
+        durationPlaceholder: "Piemēram, 28",
+        pace: "Temps",
+        paceAuto: "Aprēķinās automātiski",
+        mood: "Sajūta",
+        weather: "Laikapstākļi",
         notes: "Piezīmes",
-        notesPlaceholder: "Kā juties, kāds bija temps, laikapstākļi utt.",
+        notesPlaceholder: "Tīras piezīmes par skrējienu.",
         saveRun: "Saglabāt skrējienu",
         saveChanges: "Saglabāt izmaiņas",
         cancelEdit: "Atcelt",
@@ -287,9 +390,13 @@ export default function App() {
         noRuns: "Vēl nav neviena skrējiena. Pievieno pirmo ierakstu.",
         noNotes: "Nav piezīmju.",
         mustLogin: "Tev vispirms jāielogojas.",
+        invalidPace: "Ievadi distance un ilgumu, lai redzētu tempu.",
         errorPrefix: "Kļūda",
         distanceLabel: "Distance",
         durationLabel: "Ilgums",
+        paceLabel: "Temps",
+        moodLabel: "Sajūta",
+        weatherLabel: "Weather",
         notesLabel: "Piezīmes",
       },
       en: {
@@ -303,16 +410,37 @@ export default function App() {
         feature3: "Each user sees only their own data",
         authTitle: "Sign in or create account",
         authSubtitle: "Use your email and password to access your runs.",
+        resetTitle: "Reset password",
+        resetSubtitle:
+          "Enter your email and we will send you a password reset link.",
+        updatePasswordTitle: "Set new password",
+        updatePasswordSubtitle:
+          "Enter your new password to finish the password change.",
         email: "Email",
         emailPlaceholder: "example@gmail.com",
         password: "Password",
         passwordPlaceholder: "Your password",
+        newPassword: "New password",
+        newPasswordPlaceholder: "Enter new password",
+        confirmPassword: "Confirm new password",
+        confirmPasswordPlaceholder: "Enter the same password again",
+        passwordsDoNotMatch: "Passwords do not match.",
         signIn: "Sign in",
         signUp: "Create account",
         signing: "Please wait...",
         signUpSuccess:
           "Account created. Check your email and confirm your registration.",
         signInSuccess: "Signed in successfully.",
+        forgotPassword: "Forgot password",
+        sendReset: "Send reset link",
+        resetSending: "Sending...",
+        resetSuccess:
+          "Password reset email sent. Check your inbox.",
+        backToLogin: "Back to sign in",
+        updatePasswordButton: "Save new password",
+        updatingPassword: "Saving...",
+        updatePasswordSuccess:
+          "Password changed. You can now sign in with your new password.",
         headerTitle: "All your runs in one place",
         loggedInAs: "Logged in as",
         logout: "Log out",
@@ -321,13 +449,16 @@ export default function App() {
         addRunText: "Save your next activity.",
         editRunText: "Update the selected entry and save your changes.",
         date: "Date",
-        distance: "Distance",
-        distancePlaceholder: "For example, 5 km",
-        duration: "Duration",
-        durationPlaceholder: "For example, 28 min",
+        distance: "Distance (km)",
+        distancePlaceholder: "For example, 5",
+        duration: "Duration (min)",
+        durationPlaceholder: "For example, 28",
+        pace: "Pace",
+        paceAuto: "Calculated automatically",
+        mood: "Feeling",
+        weather: "Weather",
         notes: "Notes",
-        notesPlaceholder:
-          "How you felt, pace, weather, anything important.",
+        notesPlaceholder: "Only notes about the run.",
         saveRun: "Save run",
         saveChanges: "Save changes",
         cancelEdit: "Cancel",
@@ -344,9 +475,13 @@ export default function App() {
         noRuns: "No runs yet. Add your first entry.",
         noNotes: "No notes.",
         mustLogin: "You must sign in first.",
+        invalidPace: "Enter distance and duration to see pace.",
         errorPrefix: "Error",
         distanceLabel: "Distance",
         durationLabel: "Duration",
+        paceLabel: "Pace",
+        moodLabel: "Feeling",
+        weatherLabel: "Weather",
         notesLabel: "Notes",
       },
     };
@@ -354,7 +489,34 @@ export default function App() {
     return translations[language];
   }, [language]);
 
+  const moodOptions = useMemo(
+    () => [
+      { value: "😄", emoji: "😄", label: language === "lv" ? "Lieliski" : "Great" },
+      { value: "🙂", emoji: "🙂", label: language === "lv" ? "Labi" : "Good" },
+      { value: "😐", emoji: "😐", label: language === "lv" ? "Neitrāli" : "Okay" },
+      { value: "😓", emoji: "😓", label: language === "lv" ? "Grūti" : "Tough" },
+      { value: "🥵", emoji: "🥵", label: language === "lv" ? "Ļoti grūti" : "Very hard" },
+    ],
+    [language]
+  );
+
+  const weatherOptions = useMemo(
+    () => [
+      { value: "☀️", emoji: "☀️", label: language === "lv" ? "Saulains" : "Sunny" },
+      { value: "⛅", emoji: "⛅", label: language === "lv" ? "Mainīgs" : "Partly cloudy" },
+      { value: "☁️", emoji: "☁️", label: language === "lv" ? "Mākoņains" : "Cloudy" },
+      { value: "🌧️", emoji: "🌧️", label: language === "lv" ? "Lietus" : "Rain" },
+      { value: "💨", emoji: "💨", label: language === "lv" ? "Vējains" : "Windy" },
+    ],
+    [language]
+  );
+
   useEffect(() => {
+    const hash = window.location.hash || "";
+    if (hash.includes("type=recovery")) {
+      setAuthMode("updatePassword");
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session || null);
       setPageLoading(false);
@@ -362,10 +524,15 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession || null);
-      setMessage("");
-      setError("");
+
+      if (event === "PASSWORD_RECOVERY") {
+        setAuthMode("updatePassword");
+        setMessage("");
+        setError("");
+      }
+
       setPageLoading(false);
     });
 
@@ -375,12 +542,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (session) {
+    if (session && authMode !== "updatePassword") {
       fetchRuns();
-    } else {
+    } else if (!session) {
       setRuns([]);
     }
-  }, [session]);
+  }, [session, authMode]);
 
   async function fetchRuns() {
     if (!session) return;
@@ -395,7 +562,7 @@ export default function App() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      setError(error.message);
+      setError(formatSupabaseError(error.message, language));
       setRuns([]);
     } else {
       setRuns(data || []);
@@ -416,7 +583,7 @@ export default function App() {
     });
 
     if (error) {
-      setError(error.message);
+      setError(formatSupabaseError(error.message, language));
     } else {
       setMessage(text.signUpSuccess);
       setEmail("");
@@ -438,7 +605,7 @@ export default function App() {
     });
 
     if (error) {
-      setError(error.message);
+      setError(formatSupabaseError(error.message, language));
     } else {
       setMessage(text.signInSuccess);
       setEmail("");
@@ -448,6 +615,53 @@ export default function App() {
     setAuthLoading(false);
   }
 
+  async function handlePasswordReset(e) {
+    e.preventDefault();
+    setResetLoading(true);
+    setError("");
+    setMessage("");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+    if (error) {
+      setError(formatSupabaseError(error.message, language));
+      setResetLoading(false);
+      return;
+    }
+
+    setMessage(text.resetSuccess);
+    setResetLoading(false);
+  }
+
+  async function handleUpdatePassword(e) {
+    e.preventDefault();
+    setUpdatePasswordLoading(true);
+    setError("");
+    setMessage("");
+
+    if (newPassword !== confirmNewPassword) {
+      setError(text.passwordsDoNotMatch);
+      setUpdatePasswordLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      setError(formatSupabaseError(error.message, language));
+      setUpdatePasswordLoading(false);
+      return;
+    }
+
+    setMessage(text.updatePasswordSuccess);
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setAuthMode("login");
+    setUpdatePasswordLoading(false);
+  }
+
   async function handleSignOut() {
     setError("");
     setMessage("");
@@ -455,7 +669,7 @@ export default function App() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      setError(error.message);
+      setError(formatSupabaseError(error.message, language));
     }
   }
 
@@ -464,6 +678,8 @@ export default function App() {
     setDistance("");
     setDuration("");
     setNotes("");
+    setMood("🙂");
+    setWeather("☀️");
     setEditingRunId(null);
   }
 
@@ -473,6 +689,8 @@ export default function App() {
     setDistance(run.distance || "");
     setDuration(run.duration || "");
     setNotes(run.notes || "");
+    setMood(run.mood || "🙂");
+    setWeather(run.weather || "☀️");
     setMessage("");
     setError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -504,12 +722,14 @@ export default function App() {
           distance,
           duration,
           notes,
+          mood,
+          weather,
         })
         .eq("id", editingRunId)
         .eq("user_id", session.user.id);
 
       if (error) {
-        setError(error.message);
+        setError(formatSupabaseError(error.message, language));
         setSaving(false);
         return;
       }
@@ -527,12 +747,14 @@ export default function App() {
         distance,
         duration,
         notes,
+        mood,
+        weather,
         user_id: session.user.id,
       },
     ]);
 
     if (error) {
-      setError(error.message);
+      setError(formatSupabaseError(error.message, language));
       setSaving(false);
       return;
     }
@@ -562,7 +784,7 @@ export default function App() {
       .eq("user_id", session.user.id);
 
     if (error) {
-      setError(error.message);
+      setError(formatSupabaseError(error.message, language));
       return;
     }
 
@@ -583,10 +805,45 @@ export default function App() {
     return parsed.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB");
   }
 
+  function formatPace(distanceValue, durationValue) {
+    const distanceNum = parseFloat(String(distanceValue).replace(",", "."));
+    const durationNum = parseFloat(String(durationValue).replace(",", "."));
+
+    if (!distanceNum || !durationNum || distanceNum <= 0 || durationNum <= 0) {
+      return text.invalidPace;
+    }
+
+    const totalMinutesPerKm = durationNum / distanceNum;
+    let minutes = Math.floor(totalMinutesPerKm);
+    let seconds = Math.round((totalMinutesPerKm - minutes) * 60);
+
+    if (seconds === 60) {
+      minutes += 1;
+      seconds = 0;
+    }
+
+    return `${minutes}:${String(seconds).padStart(2, "0")} / km`;
+  }
+
   function toggleLanguage(nextLanguage) {
     setLanguage(nextLanguage);
     setMessage("");
     setError("");
+  }
+
+  function goToResetMode() {
+    setAuthMode("reset");
+    setMessage("");
+    setError("");
+    setPassword("");
+  }
+
+  function goToLoginMode() {
+    setAuthMode("login");
+    setMessage("");
+    setError("");
+    setNewPassword("");
+    setConfirmNewPassword("");
   }
 
   if (pageLoading) {
@@ -603,6 +860,84 @@ export default function App() {
             <div style={styles.logoCircle}>R</div>
             <h1 style={styles.loadingTitle}>Runology</h1>
             <p style={styles.loadingText}>{text.loadingApp}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (authMode === "updatePassword") {
+    return (
+      <div className="runology-page" style={styles.page}>
+        <div style={styles.centerWrap}>
+          <div
+            className="runology-auth-card"
+            style={{ ...styles.authCard, maxWidth: "520px", width: "100%" }}
+          >
+            <div
+              className="runology-auth-topbar-mobile"
+              style={{ ...styles.authCardTopBar, display: "flex" }}
+            >
+              <LanguageSwitcher language={language} onChange={toggleLanguage} />
+            </div>
+
+            <div style={styles.authHeader}>
+              <h2 className="runology-auth-title" style={styles.authTitle}>
+                {text.updatePasswordTitle}
+              </h2>
+              <p style={styles.authSubtitle}>{text.updatePasswordSubtitle}</p>
+            </div>
+
+            <form onSubmit={handleUpdatePassword} style={styles.form}>
+              <label style={styles.label}>{text.newPassword}</label>
+              <input
+                className="runology-input"
+                type="password"
+                placeholder={text.newPasswordPlaceholder}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                style={styles.input}
+              />
+
+              <label style={styles.label}>{text.confirmPassword}</label>
+              <input
+                className="runology-input"
+                type="password"
+                placeholder={text.confirmPasswordPlaceholder}
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                required
+                style={styles.input}
+              />
+
+              <button
+                className="runology-primary-button"
+                type="submit"
+                disabled={updatePasswordLoading}
+                style={styles.primaryButton}
+              >
+                {updatePasswordLoading
+                  ? text.updatingPassword
+                  : text.updatePasswordButton}
+              </button>
+
+              <button
+                className="runology-link-button"
+                type="button"
+                onClick={goToLoginMode}
+                style={styles.linkButton}
+              >
+                {text.backToLogin}
+              </button>
+            </form>
+
+            {message && <div style={styles.successBox}>{message}</div>}
+            {error && (
+              <div style={styles.errorBox}>
+                {text.errorPrefix}: {error}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -648,54 +983,98 @@ export default function App() {
 
             <div style={styles.authHeader}>
               <h2 className="runology-auth-title" style={styles.authTitle}>
-                {text.authTitle}
+                {authMode === "reset" ? text.resetTitle : text.authTitle}
               </h2>
-              <p style={styles.authSubtitle}>{text.authSubtitle}</p>
+              <p style={styles.authSubtitle}>
+                {authMode === "reset" ? text.resetSubtitle : text.authSubtitle}
+              </p>
             </div>
 
-            <form style={styles.form}>
-              <label style={styles.label}>{text.email}</label>
-              <input
-                className="runology-input"
-                type="email"
-                placeholder={text.emailPlaceholder}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                style={styles.input}
-              />
+            {authMode === "reset" ? (
+              <form onSubmit={handlePasswordReset} style={styles.form}>
+                <label style={styles.label}>{text.email}</label>
+                <input
+                  className="runology-input"
+                  type="email"
+                  placeholder={text.emailPlaceholder}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  style={styles.input}
+                />
 
-              <label style={styles.label}>{text.password}</label>
-              <input
-                className="runology-input"
-                type="password"
-                placeholder={text.passwordPlaceholder}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                style={styles.input}
-              />
+                <button
+                  className="runology-primary-button"
+                  type="submit"
+                  disabled={resetLoading}
+                  style={styles.primaryButton}
+                >
+                  {resetLoading ? text.resetSending : text.sendReset}
+                </button>
 
-              <button
-                className="runology-primary-button"
-                type="button"
-                onClick={handleSignIn}
-                disabled={authLoading}
-                style={styles.primaryButton}
-              >
-                {authLoading ? text.signing : text.signIn}
-              </button>
+                <button
+                  className="runology-link-button"
+                  type="button"
+                  onClick={goToLoginMode}
+                  style={styles.linkButton}
+                >
+                  {text.backToLogin}
+                </button>
+              </form>
+            ) : (
+              <form style={styles.form}>
+                <label style={styles.label}>{text.email}</label>
+                <input
+                  className="runology-input"
+                  type="email"
+                  placeholder={text.emailPlaceholder}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  style={styles.input}
+                />
 
-              <button
-                className="runology-secondary-button"
-                type="button"
-                onClick={handleSignUp}
-                disabled={authLoading}
-                style={styles.secondaryButton}
-              >
-                {authLoading ? text.signing : text.signUp}
-              </button>
-            </form>
+                <label style={styles.label}>{text.password}</label>
+                <input
+                  className="runology-input"
+                  type="password"
+                  placeholder={text.passwordPlaceholder}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={styles.input}
+                />
+
+                <button
+                  className="runology-primary-button"
+                  type="button"
+                  onClick={handleSignIn}
+                  disabled={authLoading}
+                  style={styles.primaryButton}
+                >
+                  {authLoading ? text.signing : text.signIn}
+                </button>
+
+                <button
+                  className="runology-secondary-button"
+                  type="button"
+                  onClick={handleSignUp}
+                  disabled={authLoading}
+                  style={styles.secondaryButton}
+                >
+                  {authLoading ? text.signing : text.signUp}
+                </button>
+
+                <button
+                  className="runology-link-button"
+                  type="button"
+                  onClick={goToResetMode}
+                  style={styles.linkButton}
+                >
+                  {text.forgotPassword}
+                </button>
+              </form>
+            )}
 
             {message && <div style={styles.successBox}>{message}</div>}
             {error && (
@@ -761,25 +1140,60 @@ export default function App() {
               />
 
               <label style={styles.label}>{text.distance}</label>
-              <input
-                className="runology-input"
-                type="text"
-                placeholder={text.distancePlaceholder}
-                value={distance}
-                onChange={(e) => setDistance(e.target.value)}
-                required
-                style={styles.input}
-              />
+             <input
+  className="runology-input"
+  type="number"
+  step="0.01"
+  min="0"
+  placeholder={text.distancePlaceholder}
+  value={distance}
+  onChange={(e) => {
+    const value = e.target.value.replace(",", ".");
+    if (/^\d*\.?\d{0,2}$/.test(value)) {
+      setDistance(value);
+    }
+  }}
+  required
+  style={styles.input}
+/>
 
               <label style={styles.label}>{text.duration}</label>
               <input
-                className="runology-input"
-                type="text"
-                placeholder={text.durationPlaceholder}
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                required
-                style={styles.input}
+  className="runology-input"
+  type="number"
+  step="0.01"
+  min="0"
+  placeholder={text.durationPlaceholder}
+  value={duration}
+  onChange={(e) => {
+    const value = e.target.value.replace(",", ".");
+    if (/^\d*\.?\d{0,2}$/.test(value)) {
+      setDuration(value);
+    }
+  }}
+  required
+  style={styles.input}
+/>
+
+              <div style={styles.pacePreviewBox}>
+                <span style={styles.infoLabel}>{text.pace}</span>
+                <div style={styles.pacePreviewValue}>
+                  {formatPace(distance, duration)}
+                </div>
+              </div>
+
+              <label style={styles.label}>{text.mood}</label>
+              <EmojiPicker
+                options={moodOptions}
+                value={mood}
+                onChange={setMood}
+              />
+
+              <label style={styles.label}>{text.weather}</label>
+              <EmojiPicker
+                options={weatherOptions}
+                value={weather}
+                onChange={setWeather}
               />
 
               <label style={styles.label}>{text.notes}</label>
@@ -850,7 +1264,12 @@ export default function App() {
                       <div className="runology-run-date" style={styles.runDate}>
                         {formatDate(run.date)}
                       </div>
-                      <div style={styles.runPill}>{run.distance}</div>
+                      <div style={styles.runPill}>{run.distance} km</div>
+                    </div>
+
+                    <div style={styles.metaChipRow}>
+                      <div style={styles.metaChip}>{run.mood || "🙂"}</div>
+                      <div style={styles.metaChip}>{run.weather || "☀️"}</div>
                     </div>
 
                     <div
@@ -861,14 +1280,23 @@ export default function App() {
                         <span style={styles.infoLabel}>
                           {text.distanceLabel}
                         </span>
-                        <span style={styles.infoValue}>{run.distance}</span>
+                        <span style={styles.infoValue}>{run.distance} km</span>
                       </div>
 
                       <div style={styles.infoBlock}>
                         <span style={styles.infoLabel}>
                           {text.durationLabel}
                         </span>
-                        <span style={styles.infoValue}>{run.duration}</span>
+                        <span style={styles.infoValue}>{run.duration} min</span>
+                      </div>
+
+                      <div style={styles.infoBlock}>
+                        <span style={styles.infoLabel}>
+                          {text.paceLabel}
+                        </span>
+                        <span style={styles.infoValue}>
+                          {formatPace(run.distance, run.duration)}
+                        </span>
                       </div>
                     </div>
 
@@ -1183,6 +1611,51 @@ const styles = {
     minHeight: "120px",
     resize: "vertical",
   },
+  pacePreviewBox: {
+    background: "#f6fbf7",
+    border: "1px solid #e1f1e5",
+    borderRadius: "16px",
+    padding: "14px",
+    marginTop: "4px",
+  },
+  pacePreviewValue: {
+    fontSize: "18px",
+    fontWeight: "700",
+    color: "#143524",
+    marginTop: "6px",
+  },
+  emojiRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+  },
+  emojiButton: {
+    border: "1px solid #d7ebdd",
+    background: "#f7fcf8",
+    borderRadius: "14px",
+    minWidth: "48px",
+    minHeight: "48px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emojiButtonActive: {
+    border: "1px solid #16a34a",
+    background: "#ecfdf3",
+    borderRadius: "14px",
+    minWidth: "48px",
+    minHeight: "48px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 6px 14px rgba(22, 163, 74, 0.12)",
+  },
+  emojiIcon: {
+    fontSize: "24px",
+    lineHeight: 1,
+  },
   primaryButton: {
     width: "100%",
     border: "none",
@@ -1216,6 +1689,16 @@ const styles = {
     color: "#14532d",
     background: "#f7fcf8",
     whiteSpace: "nowrap",
+  },
+  linkButton: {
+    border: "none",
+    background: "transparent",
+    padding: "8px 0",
+    fontSize: "14px",
+    fontWeight: "700",
+    cursor: "pointer",
+    color: "#15803d",
+    textAlign: "left",
   },
   logoutButton: {
     border: "1px solid #cfe6d6",
@@ -1274,7 +1757,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: "12px",
-    marginBottom: "16px",
+    marginBottom: "12px",
     flexWrap: "wrap",
   },
   runDate: {
@@ -1290,9 +1773,25 @@ const styles = {
     fontWeight: "800",
     fontSize: "13px",
   },
+  metaChipRow: {
+    display: "flex",
+    gap: "8px",
+    marginBottom: "14px",
+  },
+  metaChip: {
+    minWidth: "40px",
+    height: "40px",
+    borderRadius: "999px",
+    background: "#f6fbf7",
+    border: "1px solid #e1f1e5",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "20px",
+  },
   runInfoRow: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "1fr 1fr 1fr",
     gap: "12px",
     marginBottom: "14px",
   },
