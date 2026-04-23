@@ -289,6 +289,16 @@ export default function App() {
   const [error, setError] = useState("");
   const [editingRunId, setEditingRunId] = useState(null);
   const [authMode, setAuthMode] = useState("choose");
+  const [activeView, setActiveView] = useState("runs");
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [username, setUsername] = useState("");
+  const [unit, setUnit] = useState("km");
+  const [watch, setWatch] = useState("");
+  const [profilePassword, setProfilePassword] = useState("");
+  const [profilePasswordConfirm, setProfilePasswordConfirm] = useState("");
   const [language, setLanguage] = useState(() => {
     if (typeof window === "undefined") return "lv";
     const saved = window.localStorage.getItem("runology-language");
@@ -296,15 +306,47 @@ export default function App() {
   });
 
   useEffect(() => {
+  if (session && authMode !== "updatePassword") {
+    fetchRuns();
+  } else if (!session) {
+    setRuns([]);
+  }
+  }, [session, authMode]);
+  useEffect(() => {
+  if (session) {
+    fetchProfile();
+  } else {
+    setUsername("");
+    setUnit("km");
+    setWatch("");
+    setProfileMessage("");
+    setProfileError("");
+  }
+}, [session]);
+
+    useEffect(() => {
+  if (session) {
+    fetchProfile();
+  } else {
+    setUsername("");
+    setUnit("km");
+    setWatch("");
+    setProfileMessage("");
+    setProfileError("");
+  }
+}, [session]);
     if (typeof document === "undefined") return;
 
-    if (!document.getElementById("runology-responsive-styles")) {
-      const styleTag = document.createElement("style");
-      styleTag.id = "runology-responsive-styles";
-      styleTag.innerHTML = responsiveCss;
-      document.head.appendChild(styleTag);
-    }
-  }, []);
+  useEffect(() => {
+  if (typeof document === "undefined") return;
+
+  if (!document.getElementById("runology-responsive-styles")) {
+    const styleTag = document.createElement("style");
+    styleTag.id = "runology-responsive-styles";
+    styleTag.innerHTML = responsiveCss;
+    document.head.appendChild(styleTag);
+  }
+}, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -395,6 +437,24 @@ export default function App() {
         durationLabel: "Ilgums",
         paceLabel: "Temps",
         notesLabel: "Piezīmes",
+        profileTab: "Profils",
+        runsTab: "Skrējieni",
+        profileTitle: "Tavs profils",
+        profileText: "Pārvaldi savu profilu un iestatījumus.",
+        username: "Lietotājvārds",
+        usernamePlaceholder: "Piemēram, Juris",
+        unitLabel: "Noklusētā distance",
+        watchLabel: "Pulkstenis",
+        watchPlaceholder: "Piemēram, Garmin Forerunner 255",
+        emailReadOnly: "E-pasts",
+        changePasswordTitle: "Mainīt paroli",
+        newPasswordShort: "Jaunā parole",
+        confirmNewPasswordShort: "Atkārto jauno paroli",
+        saveProfile: "Saglabāt profilu",
+        profileSaving: "Saglabā...",
+        profileSaved: "Profils saglabāts.",
+        kilometers: "Kilometri (km)",
+        miles: "Jūdzes (mi)",
       },
       en: {
         brand: "RUNOLOGY",
@@ -476,6 +536,24 @@ export default function App() {
         durationLabel: "Duration",
         paceLabel: "Pace",
         notesLabel: "Notes",
+        profileTab: "Profile",
+        runsTab: "Runs",
+        profileTitle: "Your profile",
+        profileText: "Manage your profile and preferences.",
+        username: "Username",
+        usernamePlaceholder: "For example, Juris",
+        unitLabel: "Default distance",
+        watchLabel: "Watch",
+        watchPlaceholder: "For example, Garmin Forerunner 255",
+        emailReadOnly: "Email",
+        changePasswordTitle: "Change password",
+        newPasswordShort: "New password",
+        confirmNewPasswordShort: "Confirm new password",
+        saveProfile: "Save profile",
+        profileSaving: "Saving...",
+        profileSaved: "Profile saved.",
+        kilometers: "Kilometers (km)",
+        miles: "Miles (mi)",
       },
     };
 
@@ -598,6 +676,100 @@ const stats = useMemo(() => {
 
     setRunsLoading(false);
   }
+async function fetchProfile() {
+  if (!session) return;
+
+  setProfileLoading(true);
+  setProfileError("");
+  setProfileMessage("");
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", session.user.id)
+    .maybeSingle();
+
+  if (error) {
+    setProfileError(formatSupabaseError(error.message, language));
+    setProfileLoading(false);
+    return;
+  }
+
+  if (!data) {
+    const { error: insertError } = await supabase.from("profiles").insert([
+      {
+        id: session.user.id,
+        username: "",
+        unit: "km",
+        watch: "",
+      },
+    ]);
+
+    if (insertError) {
+      setProfileError(formatSupabaseError(insertError.message, language));
+      setProfileLoading(false);
+      return;
+    }
+
+    setUsername("");
+    setUnit("km");
+    setWatch("");
+    setProfileLoading(false);
+    return;
+  }
+
+  setUsername(data.username || "");
+  setUnit(data.unit || "km");
+  setWatch(data.watch || "");
+  setProfileLoading(false);
+}
+async function fetchProfile() {
+  if (!session) return;
+
+  setProfileLoading(true);
+  setProfileError("");
+  setProfileMessage("");
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", session.user.id)
+    .maybeSingle();
+
+  if (error) {
+    setProfileError(formatSupabaseError(error.message, language));
+    setProfileLoading(false);
+    return;
+  }
+
+  if (!data) {
+    const { error: insertError } = await supabase.from("profiles").insert([
+      {
+        id: session.user.id,
+        username: "",
+        unit: "km",
+        watch: "",
+      },
+    ]);
+
+    if (insertError) {
+      setProfileError(formatSupabaseError(insertError.message, language));
+      setProfileLoading(false);
+      return;
+    }
+
+    setUsername("");
+    setUnit("km");
+    setWatch("");
+    setProfileLoading(false);
+    return;
+  }
+
+  setUsername(data.username || "");
+  setUnit(data.unit || "km");
+  setWatch(data.watch || "");
+  setProfileLoading(false);
+}
 
   async function handleSignUp(e) {
     e.preventDefault();
@@ -700,6 +872,107 @@ const stats = useMemo(() => {
       setError(formatSupabaseError(error.message, language));
     }
   }
+async function handleSaveProfile(e) {
+  e.preventDefault();
+
+  if (!session) return;
+
+  setProfileSaving(true);
+  setProfileError("");
+  setProfileMessage("");
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      username: username.trim(),
+      unit,
+      watch: watch.trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", session.user.id);
+
+  if (error) {
+    setProfileError(formatSupabaseError(error.message, language));
+    setProfileSaving(false);
+    return;
+  }
+
+  if (profilePassword || profilePasswordConfirm) {
+    if (profilePassword !== profilePasswordConfirm) {
+      setProfileError(language === "lv" ? "Paroles nesakrīt." : "Passwords do not match.");
+      setProfileSaving(false);
+      return;
+    }
+
+    const { error: passwordError } = await supabase.auth.updateUser({
+      password: profilePassword,
+    });
+
+    if (passwordError) {
+      setProfileError(formatSupabaseError(passwordError.message, language));
+      setProfileSaving(false);
+      return;
+    }
+  }
+
+  setProfilePassword("");
+  setProfilePasswordConfirm("");
+  setProfileMessage(
+    language === "lv" ? "Profils saglabāts." : "Profile saved."
+  );
+  setProfileSaving(false);
+}
+
+async function handleSaveProfile(e) {
+  e.preventDefault();
+
+  if (!session) return;
+
+  setProfileSaving(true);
+  setProfileError("");
+  setProfileMessage("");
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      username: username.trim(),
+      unit,
+      watch: watch.trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", session.user.id);
+
+  if (error) {
+    setProfileError(formatSupabaseError(error.message, language));
+    setProfileSaving(false);
+    return;
+  }
+
+  if (profilePassword || profilePasswordConfirm) {
+    if (profilePassword !== profilePasswordConfirm) {
+      setProfileError(language === "lv" ? "Paroles nesakrīt." : "Passwords do not match.");
+      setProfileSaving(false);
+      return;
+    }
+
+    const { error: passwordError } = await supabase.auth.updateUser({
+      password: profilePassword,
+    });
+
+    if (passwordError) {
+      setProfileError(formatSupabaseError(passwordError.message, language));
+      setProfileSaving(false);
+      return;
+    }
+  }
+
+  setProfilePassword("");
+  setProfilePasswordConfirm("");
+  setProfileMessage(
+    language === "lv" ? "Profils saglabāts." : "Profile saved."
+  );
+  setProfileSaving(false);
+}
 
   function resetForm() {
     setDate("");
@@ -860,20 +1133,39 @@ const stats = useMemo(() => {
     const durationNum = parseFloat(String(durationValue).replace(",", "."));
 
     if (!distanceNum || !durationNum || distanceNum <= 0 || durationNum <= 0) {
-      return text.invalidPace;
-    }
+    return text.invalidPace;
+  }
 
-    const totalMinutesPerKm = durationNum / distanceNum;
+    const distanceInKm =
+    unit === "miles" ? distanceNum * 1.60934 : distanceNum;
+
+    const totalMinutesPerKm = durationNum / distanceInKm;
     let minutes = Math.floor(totalMinutesPerKm);
     let seconds = Math.round((totalMinutesPerKm - minutes) * 60);
 
     if (seconds === 60) {
-      minutes += 1;
-      seconds = 0;
-    }
-
-    return `${minutes}:${String(seconds).padStart(2, "0")} / km`;
+    minutes += 1;
+    seconds = 0;
   }
+
+  return `${minutes}:${String(seconds).padStart(2, "0")} / ${
+    unit === "miles" ? "mi" : "km"
+  }`;
+}
+function convertDistance(value) {
+  const num = parseFloat(String(value).replace(",", "."));
+  if (!num) return value;
+
+  if (unit === "miles") {
+    return (num * 0.621371).toFixed(2);
+  }
+
+  return num.toFixed(2);
+}
+
+function getDistanceUnitLabel() {
+  return unit === "miles" ? "mi" : "km";
+}
 
   function toggleLanguage(nextLanguage) {
     setLanguage(nextLanguage);
@@ -1248,20 +1540,36 @@ const stats = useMemo(() => {
               {text.headerTitle}
             </h1>
             <p style={styles.appSubtitle}>
-              {text.loggedInAs} <strong>{session.user.email}</strong>
-            </p>
+            {text.loggedInAs}{" "}
+            <strong>{username || session.user.email}</strong>            </p>
           </div>
 
-          <div className="runology-header-actions" style={styles.headerActions}>
-            <LanguageSwitcher language={language} onChange={toggleLanguage} />
+          <div className="runology-header-actions" style={styles.headerActions}>          <div style={styles.viewSwitch}>
             <button
-              className="runology-logout-button"
-              onClick={handleSignOut}
-              style={styles.logoutButton}
+              type="button"
+              onClick={() => setActiveView("runs")}
+              style={activeView === "runs" ? styles.viewSwitchButtonActive : styles.viewSwitchButton}
             >
-              {text.logout}
+              {text.runsTab}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView("profile")}
+              style={activeView === "profile" ? styles.viewSwitchButtonActive : styles.viewSwitchButton}
+            >
+              {text.profileTab}
             </button>
           </div>
+
+          <LanguageSwitcher language={language} onChange={toggleLanguage} />
+          <button
+            className="runology-logout-button"
+            onClick={handleSignOut}
+            style={styles.logoutButton}
+          >
+            {text.logout}
+          </button>
+        </div>
         </header>
 
 <div className="runology-stats-grid" style={styles.statsGrid}>
@@ -1286,207 +1594,305 @@ const stats = useMemo(() => {
     <span style={styles.statValue}>{stats.averagePace}</span>
   </div>
 </div>
+{activeView === "runs" ? (
+  <section className="runology-main-grid" style={styles.mainGrid}>
+    <div className="runology-form-card" style={styles.formCard}>
+      <div style={styles.sectionHeader}>
+        <h2 className="runology-section-title" style={styles.sectionTitle}>
+          {editingRunId ? text.editRunTitle : text.addRunTitle}
+        </h2>
+        <p style={styles.sectionText}>
+          {editingRunId ? text.editRunText : text.addRunText}
+        </p>
+      </div>
 
-        <section className="runology-main-grid" style={styles.mainGrid}>
-          <div className="runology-form-card" style={styles.formCard}>
-            <div style={styles.sectionHeader}>
-              <h2 className="runology-section-title" style={styles.sectionTitle}>
-                {editingRunId ? text.editRunTitle : text.addRunTitle}
-              </h2>
-              <p style={styles.sectionText}>
-                {editingRunId ? text.editRunText : text.addRunText}
-              </p>
-            </div>
+      <form onSubmit={handleSubmit} style={styles.form}>
+        <label style={styles.label}>{text.date}</label>
+        <input
+          className="runology-input"
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          required
+          style={styles.input}
+        />
 
-            <form onSubmit={handleSubmit} style={styles.form}>
-              <label style={styles.label}>{text.date}</label>
-              <input
-                className="runology-input"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                style={styles.input}
-              />
+        <label style={styles.label}>{text.distance}</label>
+        <input
+          className="runology-input"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder={text.distancePlaceholder}
+          value={distance}
+          onChange={(e) => {
+            const value = e.target.value.replace(",", ".");
+            if (/^\d*\.?\d{0,2}$/.test(value)) {
+              setDistance(value);
+            }
+          }}
+          required
+          style={styles.input}
+        />
 
-              <label style={styles.label}>{text.distance}</label>
-              <input
-                className="runology-input"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder={text.distancePlaceholder}
-                value={distance}
-                onChange={(e) => {
-                  const value = e.target.value.replace(",", ".");
-                  if (/^\d*\.?\d{0,2}$/.test(value)) {
-                    setDistance(value);
-                  }
-                }}
-                required
-                style={styles.input}
-              />
+        <label style={styles.label}>{text.duration}</label>
+        <input
+          className="runology-input"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder={text.durationPlaceholder}
+          value={duration}
+          onChange={(e) => {
+            const value = e.target.value.replace(",", ".");
+            if (/^\d*\.?\d{0,2}$/.test(value)) {
+              setDuration(value);
+            }
+          }}
+          required
+          style={styles.input}
+        />
 
-              <label style={styles.label}>{text.duration}</label>
-              <input
-                className="runology-input"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder={text.durationPlaceholder}
-                value={duration}
-                onChange={(e) => {
-                  const value = e.target.value.replace(",", ".");
-                  if (/^\d*\.?\d{0,2}$/.test(value)) {
-                    setDuration(value);
-                  }
-                }}
-                required
-                style={styles.input}
-              />
+        <div style={styles.pacePreviewBox}>
+          <span style={styles.infoLabel}>{text.pace}</span>
+          <div style={styles.pacePreviewValue}>
+            {formatPace(distance, duration)}
+          </div>
+        </div>
 
-              <div style={styles.pacePreviewBox}>
-                <span style={styles.infoLabel}>{text.pace}</span>
-                <div style={styles.pacePreviewValue}>
-                  {formatPace(distance, duration)}
+        <label style={styles.label}>{text.mood}</label>
+        <EmojiPicker options={moodOptions} value={mood} onChange={setMood} />
+
+        <label style={styles.label}>{text.weather}</label>
+        <EmojiPicker
+          options={weatherOptions}
+          value={weather}
+          onChange={setWeather}
+        />
+
+        <label style={styles.label}>{text.notes}</label>
+        <textarea
+          className="runology-textarea"
+          placeholder={text.notesPlaceholder}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          style={styles.textarea}
+        />
+
+        <div className="runology-form-actions" style={styles.formActions}>
+          <button
+            className="runology-primary-button"
+            type="submit"
+            disabled={saving}
+            style={styles.primaryButtonDashboard}
+          >
+            {saving
+              ? text.saving
+              : editingRunId
+              ? text.saveChanges
+              : text.saveRun}
+          </button>
+
+          {editingRunId && (
+            <button
+              className="runology-cancel-button"
+              type="button"
+              onClick={handleCancelEdit}
+              style={styles.cancelButton}
+            >
+              {text.cancelEdit}
+            </button>
+          )}
+        </div>
+      </form>
+
+      {message && <div style={styles.successBoxDashboard}>{message}</div>}
+      {error && <div style={styles.errorBoxDashboard}>{text.errorPrefix}: {error}</div>}
+    </div>
+
+    <div className="runology-list-card" style={styles.listCard}>
+      <div style={styles.sectionHeader}>
+        <h2 className="runology-section-title" style={styles.sectionTitle}>
+          {text.runsTitle}
+        </h2>
+        <p style={styles.sectionText}>{text.runsText}</p>
+      </div>
+
+      {runsLoading ? (
+        <div style={styles.emptyState}>{text.loadingRuns}</div>
+      ) : runs.length === 0 ? (
+        <div style={styles.emptyState}>{text.noRuns}</div>
+      ) : (
+        <div style={styles.runList}>
+          {runs.map((run) => (
+            <div
+              className="runology-run-card"
+              key={run.id}
+              style={styles.runCard}
+            >
+              <div style={styles.runTopRow}>
+                <div className="runology-run-date" style={styles.runDate}>
+                  {formatDate(run.date)}
+                </div>
+                <div style={styles.runPill}>{convertDistance(run.distance)} {getDistanceUnitLabel()}</div>
+              </div>
+
+              <div style={styles.metaChipRow}>
+                <div style={styles.metaChip}>{run.mood || "🙂"}</div>
+                <div style={styles.metaChip}>{run.weather || "☀️"}</div>
+              </div>
+
+              <div className="runology-run-info-row" style={styles.runInfoRow}>
+                <div style={styles.infoBlock}>
+                  <span style={styles.infoLabel}>{text.distanceLabel}</span>
+                  <span style={styles.infoValue}>{convertDistance(run.distance)} {getDistanceUnitLabel()}</span>
+                </div>
+
+                <div style={styles.infoBlock}>
+                  <span style={styles.infoLabel}>{text.durationLabel}</span>
+                  <span style={styles.infoValue}>{run.duration} min</span>
+                </div>
+
+                <div style={styles.infoBlock}>
+                  <span style={styles.infoLabel}>{text.paceLabel}</span>
+                  <span style={styles.infoValue}>
+                    {formatPace(run.distance, run.duration)}
+                  </span>
                 </div>
               </div>
 
-              <label style={styles.label}>{text.mood}</label>
-              <EmojiPicker options={moodOptions} value={mood} onChange={setMood} />
-
-              <label style={styles.label}>{text.weather}</label>
-              <EmojiPicker
-                options={weatherOptions}
-                value={weather}
-                onChange={setWeather}
-              />
-
-              <label style={styles.label}>{text.notes}</label>
-              <textarea
-                className="runology-textarea"
-                placeholder={text.notesPlaceholder}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                style={styles.textarea}
-              />
-
-              <div className="runology-form-actions" style={styles.formActions}>
+              <div className="runology-run-action-row" style={styles.runActionRow}>
                 <button
-                  className="runology-primary-button"
-                  type="submit"
-                  disabled={saving}
-                  style={styles.primaryButtonDashboard}
+                  type="button"
+                  onClick={() => handleStartEdit(run)}
+                  style={styles.editButton}
                 >
-                  {saving
-                    ? text.saving
-                    : editingRunId
-                    ? text.saveChanges
-                    : text.saveRun}
+                  {text.editRun}
                 </button>
 
-                {editingRunId && (
-                  <button
-                    className="runology-cancel-button"
-                    type="button"
-                    onClick={handleCancelEdit}
-                    style={styles.cancelButton}
-                  >
-                    {text.cancelEdit}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => handleDelete(run.id)}
+                  style={styles.deleteButton}
+                >
+                  {text.deleteRun}
+                </button>
               </div>
-            </form>
 
-            {message && <div style={styles.successBoxDashboard}>{message}</div>}
-            {error && <div style={styles.errorBoxDashboard}>{text.errorPrefix}: {error}</div>}
-          </div>
-
-          <div className="runology-list-card" style={styles.listCard}>
-            <div style={styles.sectionHeader}>
-              <h2 className="runology-section-title" style={styles.sectionTitle}>
-                {text.runsTitle}
-              </h2>
-              <p style={styles.sectionText}>{text.runsText}</p>
+              <div style={styles.notesBox}>
+                <span style={styles.infoLabel}>{text.notesLabel}</span>
+                <p style={styles.notesText}>{run.notes || text.noNotes}</p>
+              </div>
             </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </section>
+) : (
+  <section style={styles.profileSection}>
+    <div style={styles.profileCard}>
+      <div style={styles.sectionHeader}>
+        <h2 className="runology-section-title" style={styles.sectionTitle}>
+          {text.profileTitle}
+        </h2>
+        <p style={styles.sectionText}>{text.profileText}</p>
+      </div>
 
-            {runsLoading ? (
-              <div style={styles.emptyState}>{text.loadingRuns}</div>
-            ) : runs.length === 0 ? (
-              <div style={styles.emptyState}>{text.noRuns}</div>
-            ) : (
-              <div style={styles.runList}>
-                {runs.map((run) => (
-                  <div
-                    className="runology-run-card"
-                    key={run.id}
-                    style={styles.runCard}
-                  >
-                    <div style={styles.runTopRow}>
-                      <div className="runology-run-date" style={styles.runDate}>
-                        {formatDate(run.date)}
-                      </div>
-                      <div style={styles.runPill}>{run.distance} km</div>
-                    </div>
+      {profileLoading ? (
+        <div style={styles.emptyState}>
+          {language === "lv" ? "Ielādē profilu..." : "Loading profile..."}
+        </div>
+      ) : (
+        <form onSubmit={handleSaveProfile} style={styles.form}>
+          <label style={styles.label}>{text.username}</label>
+          <input
+            className="runology-input"
+            type="text"
+            placeholder={text.usernamePlaceholder}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            style={styles.input}
+          />
 
-                    <div style={styles.metaChipRow}>
-                      <div style={styles.metaChip}>{run.mood || "🙂"}</div>
-                      <div style={styles.metaChip}>{run.weather || "☀️"}</div>
-                    </div>
+          <label style={styles.label}>{text.emailReadOnly}</label>
+          <input
+            className="runology-input"
+            type="text"
+            value={session?.user?.email || ""}
+            readOnly
+            style={styles.inputReadOnly}
+          />
 
-                    <div className="runology-run-info-row" style={styles.runInfoRow}>
-                      <div style={styles.infoBlock}>
-                        <span style={styles.infoLabel}>{text.distanceLabel}</span>
-                        <span style={styles.infoValue}>{run.distance} km</span>
-                      </div>
+          <label style={styles.label}>{text.unitLabel}</label>
+          <select
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+            style={styles.input}
+          >
+            <option value="km">{text.kilometers}</option>
+            <option value="miles">{text.miles}</option>
+          </select>
 
-                      <div style={styles.infoBlock}>
-                        <span style={styles.infoLabel}>{text.durationLabel}</span>
-                        <span style={styles.infoValue}>{run.duration} min</span>
-                      </div>
+          <label style={styles.label}>{text.watchLabel}</label>
+          <input
+            className="runology-input"
+            type="text"
+            placeholder={text.watchPlaceholder}
+            value={watch}
+            onChange={(e) => setWatch(e.target.value)}
+            style={styles.input}
+          />
 
-                      <div style={styles.infoBlock}>
-                        <span style={styles.infoLabel}>{text.paceLabel}</span>
-                        <span style={styles.infoValue}>
-                          {formatPace(run.distance, run.duration)}
-                        </span>
-                      </div>
-                    </div>
+          <div style={styles.profilePasswordBlock}>
+            <h3 style={styles.profileSubheading}>{text.changePasswordTitle}</h3>
 
-                    <div className="runology-run-action-row" style={styles.runActionRow}>
-                      <button
-                        type="button"
-                        onClick={() => handleStartEdit(run)}
-                        style={styles.editButton}
-                      >
-                        {text.editRun}
-                      </button>
+            <label style={styles.label}>{text.newPasswordShort}</label>
+            <input
+              className="runology-input"
+              type="password"
+              value={profilePassword}
+              onChange={(e) => setProfilePassword(e.target.value)}
+              style={styles.input}
+            />
 
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(run.id)}
-                        style={styles.deleteButton}
-                      >
-                        {text.deleteRun}
-                      </button>
-                    </div>
-
-                    <div style={styles.notesBox}>
-                      <span style={styles.infoLabel}>{text.notesLabel}</span>
-                      <p style={styles.notesText}>{run.notes || text.noNotes}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <label style={styles.label}>{text.confirmNewPasswordShort}</label>
+            <input
+              className="runology-input"
+              type="password"
+              value={profilePasswordConfirm}
+              onChange={(e) => setProfilePasswordConfirm(e.target.value)}
+              style={styles.input}
+            />
           </div>
-        </section>
+
+          <button
+            className="runology-primary-button"
+            type="submit"
+            disabled={profileSaving}
+            style={styles.primaryButtonDashboard}
+          >
+            {profileSaving ? text.profileSaving : text.saveProfile}
+          </button>
+        </form>
+      )}
+
+      {profileMessage && <div style={styles.successBoxDashboard}>{profileMessage}</div>}
+      {profileError && (
+        <div style={styles.errorBoxDashboard}>
+          {text.errorPrefix}: {profileError}
+        </div>
+      )}
+    </div>
+  </section>
+)}
+
       </div>
     </div>
   );
 }
 
-const styles = {
+const styles = {  
   page: {
     minHeight: "100vh",
     background: "#111111",
@@ -1693,6 +2099,74 @@ const styles = {
     gap: "12px",
     flexWrap: "wrap",
   },
+  viewSwitch: {
+  display: "inline-flex",
+  gap: "8px",
+  background: "#242424",
+  border: "1px solid #343434",
+  borderRadius: "14px",
+  padding: "4px",
+},
+
+viewSwitchButton: {
+  border: "none",
+  background: "transparent",
+  color: "#b8aa95",
+  borderRadius: "10px",
+  padding: "10px 14px",
+  fontSize: "14px",
+  fontWeight: "700",
+  cursor: "pointer",
+},
+
+viewSwitchButtonActive: {
+  border: "none",
+  background: "#2f2f2f",
+  color: "#ffffff",
+  borderRadius: "10px",
+  padding: "10px 14px",
+  fontSize: "14px",
+  fontWeight: "700",
+  cursor: "pointer",
+},
+
+profileSection: {
+  marginTop: "0",
+},
+
+profileCard: {
+  background: "#1b1b1b",
+  borderRadius: "24px",
+  padding: "28px",
+  boxShadow: "0 20px 60px rgba(0, 0, 0, 0.25)",
+  border: "1px solid #292929",
+  maxWidth: "760px",
+},
+
+inputReadOnly: {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "16px 16px",
+  fontSize: "16px",
+  borderRadius: "10px",
+  border: "1px solid #3b3b3b",
+  background: "#222222",
+  outline: "none",
+  color: "#a89f92",
+  boxShadow: "none",
+},
+
+profilePasswordBlock: {
+  marginTop: "16px",
+  paddingTop: "10px",
+},
+
+profileSubheading: {
+  margin: "0 0 8px 0",
+  color: "#f6efe5",
+  fontSize: "18px",
+  fontWeight: "700",
+},
   topTag: {
     display: "inline-block",
     padding: "7px 12px",
