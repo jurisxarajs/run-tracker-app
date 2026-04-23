@@ -1106,40 +1106,40 @@ export default function App() {
               />
 
               <label style={styles.label}>{text.distance}</label>
-              <input
-                className="runology-input"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder={text.distancePlaceholder}
-                value={distance}
-                onChange={(e) => {
-                  const value = e.target.value.replace(",", ".");
-                  if (/^\\d*\\.?\\d{0,2}$/.test(value)) {
-                    setDistance(value);
-                  }
-                }}
-                required
-                style={styles.input}
-              />
+             <input
+  className="runology-input"
+  type="number"
+  step="0.01"
+  min="0"
+  placeholder={text.distancePlaceholder}
+  value={distance}
+  onChange={(e) => {
+    const value = e.target.value.replace(",", ".");
+    if (/^\d*\.?\d{0,2}$/.test(value)) {
+      setDistance(value);
+    }
+  }}
+  required
+  style={styles.input}
+/>
 
               <label style={styles.label}>{text.duration}</label>
               <input
-                className="runology-input"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder={text.durationPlaceholder}
-                value={duration}
-                onChange={(e) => {
-                  const value = e.target.value.replace(",", ".");
-                  if (/^\\d*\\.?\\d{0,2}$/.test(value)) {
-                    setDuration(value);
-                  }
-                }}
-                required
-                style={styles.input}
-              />
+  className="runology-input"
+  type="number"
+  step="0.01"
+  min="0"
+  placeholder={text.durationPlaceholder}
+  value={duration}
+  onChange={(e) => {
+    const value = e.target.value.replace(",", ".");
+    if (/^\d*\.?\d{0,2}$/.test(value)) {
+      setDuration(value);
+    }
+  }}
+  required
+  style={styles.input}
+/>
 
               <div style={styles.pacePreviewBox}>
                 <span style={styles.infoLabel}>{text.pace}</span>
