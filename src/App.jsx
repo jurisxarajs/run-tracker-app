@@ -717,32 +717,38 @@ export default function App() {
     setError("");
     setMessage("");
 
-    if (editingRunId) {
-      const { error } = await supabase
-        .from("runs")
-        .update({
-          date,
-          distance: parsedDistance,
-          duration: parsedDuration,
-          notes,
-          mood,
-          weather,
-        })
-        .eq("id", editingRunId)
-        .eq("user_id", session.user.id);
+ if (editingRunId) {
+  const payload = {
+    date,
+    distance: String(parsedDistance),
+    duration: String(parsedDuration),
+    notes: String(notes),
+    mood,
+    weather,
+  };
 
-      if (error) {
-        setError(formatSupabaseError(error.message, language));
-        setSaving(false);
-        return;
-      }
+  const { data, error } = await supabase
+    .from("runs")
+    .update(payload)
+    .eq("id", editingRunId)
+    .eq("user_id", session.user.id)
+    .select();
 
-      setMessage(text.updateSuccess);
-      resetForm();
-      await fetchRuns();
-      setSaving(false);
-      return;
-    }
+  console.log("UPDATE RESULT DATA:", data);
+  console.log("UPDATE RESULT ERROR:", error);
+
+  if (error) {
+    setError(formatSupabaseError(error.message, language));
+    setSaving(false);
+    return;
+  }
+
+  setMessage(text.updateSuccess);
+  resetForm();
+  await fetchRuns();
+  setSaving(false);
+  return;
+}
 
     const { error } = await supabase.from("runs").insert([
       {
