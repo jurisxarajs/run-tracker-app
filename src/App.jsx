@@ -5,6 +5,7 @@ const responsiveCss = `
   @media (max-width: 1080px) {
     .runology-auth-shell {
       grid-template-columns: 1fr !important;
+      min-height: auto !important;
     }
 
     .runology-main-grid {
@@ -14,6 +15,10 @@ const responsiveCss = `
     .runology-form-card {
       position: static !important;
       top: auto !important;
+    }
+
+    .runology-auth-card-inner {
+      margin-top: 0 !important;
     }
   }
 
@@ -28,20 +33,20 @@ const responsiveCss = `
     .runology-form-card,
     .runology-list-card,
     .runology-loading-card {
-      border-radius: 28px !important;
+      border-radius: 20px !important;
     }
 
     .runology-brand-panel {
       min-height: auto !important;
-      padding: 26px !important;
+      padding: 28px !important;
     }
 
     .runology-auth-card {
-      padding: 22px !important;
+      padding: 28px !important;
     }
 
     .runology-brand-title {
-      font-size: 36px !important;
+      font-size: 46px !important;
     }
 
     .runology-auth-title {
@@ -89,17 +94,8 @@ const responsiveCss = `
       padding: 10px !important;
     }
 
-    .runology-brand-panel,
-    .runology-auth-card,
-    .runology-header,
-    .runology-form-card,
-    .runology-list-card,
-    .runology-loading-card {
-      border-radius: 24px !important;
-    }
-
     .runology-brand-title {
-      font-size: 30px !important;
+      font-size: 38px !important;
     }
 
     .runology-app-title {
@@ -160,16 +156,6 @@ const responsiveCss = `
   }
 `;
 
-if (
-  typeof document !== "undefined" &&
-  !document.getElementById("runology-responsive-styles")
-) {
-  const styleTag = document.createElement("style");
-  styleTag.id = "runology-responsive-styles";
-  styleTag.innerHTML = responsiveCss;
-  document.head.appendChild(styleTag);
-}
-
 function formatSupabaseError(errorMessage, language) {
   if (!errorMessage) return "";
 
@@ -212,23 +198,22 @@ function LanguageSwitcher({ language, onChange, dark = false }) {
   const wrapperStyle = dark
     ? {
         ...styles.languageSwitch,
-        background: "rgba(255, 255, 255, 0.10)",
-        border: "1px solid rgba(255, 255, 255, 0.16)",
+        background: "transparent",
+        border: "1px solid #545047",
       }
     : styles.languageSwitch;
 
   const buttonBase = dark
     ? {
         ...styles.languageButton,
-        color: "#ffffff",
+        color: "#b8aa95",
       }
     : styles.languageButton;
 
   const activeButtonStyle = dark
     ? {
         ...styles.languageButtonActive,
-        background: "#ffffff",
-        color: "#163223",
+        color: "#ffffff",
       }
     : styles.languageButtonActive;
 
@@ -297,14 +282,28 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [editingRunId, setEditingRunId] = useState(null);
-  const [authMode, setAuthMode] = useState("login");
+  const [authMode, setAuthMode] = useState("choose");
   const [language, setLanguage] = useState(() => {
-    const saved = localStorage.getItem("runology-language");
+    if (typeof window === "undefined") return "lv";
+    const saved = window.localStorage.getItem("runology-language");
     return saved === "en" ? "en" : "lv";
   });
 
   useEffect(() => {
-    localStorage.setItem("runology-language", language);
+    if (typeof document === "undefined") return;
+
+    if (!document.getElementById("runology-responsive-styles")) {
+      const styleTag = document.createElement("style");
+      styleTag.id = "runology-responsive-styles";
+      styleTag.innerHTML = responsiveCss;
+      document.head.appendChild(styleTag);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("runology-language", language);
+    }
   }, [language]);
 
   const text = useMemo(() => {
@@ -314,13 +313,12 @@ export default function App() {
         loadingApp: "Ielādē aplikāciju...",
         heroTitle: "Tavs skriešanas žurnāls.",
         heroText:
-          "Pieraksti skrējienus, glabā tos droši datubāzē un piekļūsti tiem no jebkuras ierīces.",
-        feature1: "Saglabā skrējienus mākonī",
-        feature2: "Piekļuve no jebkuras ierīces",
-        feature3: "Katram lietotājam savi dati",
-        authTitle: "Ieiet vai reģistrēties",
-        authSubtitle:
-          "Izmanto savu e-pastu un paroli, lai piekļūtu saviem skrējieniem.",
+          "Bez līderu tabulām. Bez sociālā spiediena. Tikai tu, tavi skrējieni un tas, kā tu juties.",
+        feature1: "Sinhronizācija mākonī — jebkura ierīce, jebkurā laikā",
+        feature2: "Privāti — tavi dati ir tikai tavējie",
+        feature3: "Sajūta, laikapstākļi un brīvas piezīmes",
+        authTitle: "Turpināt",
+        authSubtitle: "Izvēlies, ko vēlies darīt.",
         resetTitle: "Atjaunot paroli",
         resetSubtitle:
           "Ievadi savu e-pastu, un mēs nosūtīsim paroles atjaunošanas saiti.",
@@ -342,12 +340,12 @@ export default function App() {
         signUpSuccess:
           "Konts izveidots. Pārbaudi e-pastu un apstiprini reģistrāciju.",
         signInSuccess: "Veiksmīgi ielogojies.",
-        forgotPassword: "Aizmirsu paroli",
+        forgotPassword: "Aizmirsu paroli?",
         sendReset: "Nosūtīt atjaunošanas saiti",
         resetSending: "Sūta...",
         resetSuccess:
           "Paroles atjaunošanas e-pasts nosūtīts. Pārbaudi savu pastkasti.",
-        backToLogin: "Atpakaļ uz ieeju",
+        backToLogin: "Atpakaļ",
         updatePasswordButton: "Saglabāt jauno paroli",
         updatingPassword: "Saglabā...",
         updatePasswordSuccess:
@@ -397,12 +395,12 @@ export default function App() {
         loadingApp: "Loading app...",
         heroTitle: "Your running journal.",
         heroText:
-          "Log your runs, store them safely in the cloud, and access them from any device.",
-        feature1: "Store runs in the cloud",
-        feature2: "Access from any device",
-        feature3: "Each user sees only their own data",
-        authTitle: "Sign in or create account",
-        authSubtitle: "Use your email and password to access your runs.",
+          "No leaderboards. No social pressure. Just you, your runs, and how they made you feel.",
+        feature1: "Cloud sync — any device, any time",
+        feature2: "Private — your data is yours only",
+        feature3: "Mood, weather, and free-form notes",
+        authTitle: "Continue",
+        authSubtitle: "Choose what you want to do.",
         resetTitle: "Reset password",
         resetSubtitle:
           "Enter your email and we will send you a password reset link.",
@@ -410,7 +408,7 @@ export default function App() {
         updatePasswordSubtitle:
           "Enter your new password to finish the password change.",
         email: "Email",
-        emailPlaceholder: "example@gmail.com",
+        emailPlaceholder: "you@example.com",
         password: "Password",
         passwordPlaceholder: "Your password",
         newPassword: "New password",
@@ -424,12 +422,11 @@ export default function App() {
         signUpSuccess:
           "Account created. Check your email and confirm your registration.",
         signInSuccess: "Signed in successfully.",
-        forgotPassword: "Forgot password",
+        forgotPassword: "Forgot password?",
         sendReset: "Send reset link",
         resetSending: "Sending...",
-        resetSuccess:
-          "Password reset email sent. Check your inbox.",
-        backToLogin: "Back to sign in",
+        resetSuccess: "Password reset email sent. Check your inbox.",
+        backToLogin: "Back",
         updatePasswordButton: "Save new password",
         updatingPassword: "Saving...",
         updatePasswordSuccess:
@@ -502,7 +499,7 @@ export default function App() {
   );
 
   useEffect(() => {
-    const hash = window.location.hash || "";
+    const hash = typeof window !== "undefined" ? window.location.hash || "" : "";
     if (hash.includes("type=recovery")) {
       setAuthMode("updatePassword");
     }
@@ -648,7 +645,7 @@ export default function App() {
     setMessage(text.updatePasswordSuccess);
     setNewPassword("");
     setConfirmNewPassword("");
-    setAuthMode("login");
+    setAuthMode("choose");
     setUpdatePasswordLoading(false);
   }
 
@@ -676,14 +673,17 @@ export default function App() {
   function handleStartEdit(run) {
     setEditingRunId(run.id);
     setDate(run.date || "");
-    setDistance(run.distance || "");
-    setDuration(run.duration || "");
+    setDistance(run.distance != null ? String(run.distance) : "");
+    setDuration(run.duration != null ? String(run.duration) : "");
     setNotes(run.notes || "");
     setMood(run.mood || "🙂");
     setWeather(run.weather || "☀️");
     setMessage("");
     setError("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }
 
   function handleCancelEdit() {
@@ -700,6 +700,19 @@ export default function App() {
       return;
     }
 
+    const parsedDistance = parseFloat(String(distance).replace(",", "."));
+    const parsedDuration = parseFloat(String(duration).replace(",", "."));
+
+    if (
+      Number.isNaN(parsedDistance) ||
+      Number.isNaN(parsedDuration) ||
+      parsedDistance <= 0 ||
+      parsedDuration <= 0
+    ) {
+      setError(text.invalidPace);
+      return;
+    }
+
     setSaving(true);
     setError("");
     setMessage("");
@@ -709,8 +722,8 @@ export default function App() {
         .from("runs")
         .update({
           date,
-          distance,
-          duration,
+          distance: parsedDistance,
+          duration: parsedDuration,
           notes,
           mood,
           weather,
@@ -734,8 +747,8 @@ export default function App() {
     const { error } = await supabase.from("runs").insert([
       {
         date,
-        distance,
-        duration,
+        distance: parsedDistance,
+        duration: parsedDuration,
         notes,
         mood,
         weather,
@@ -821,6 +834,20 @@ export default function App() {
     setError("");
   }
 
+  function goToSignInMode() {
+    setAuthMode("login");
+    setMessage("");
+    setError("");
+    setPassword("");
+  }
+
+  function goToSignUpMode() {
+    setAuthMode("signup");
+    setMessage("");
+    setError("");
+    setPassword("");
+  }
+
   function goToResetMode() {
     setAuthMode("reset");
     setMessage("");
@@ -829,7 +856,7 @@ export default function App() {
   }
 
   function goToLoginMode() {
-    setAuthMode("login");
+    setAuthMode("choose");
     setMessage("");
     setError("");
     setNewPassword("");
@@ -842,7 +869,7 @@ export default function App() {
         <div style={styles.centerWrap}>
           <div className="runology-loading-card" style={styles.loadingCard}>
             <div className="runology-loading-topbar" style={styles.loadingTopBar}>
-              <LanguageSwitcher language={language} onChange={toggleLanguage} />
+              <LanguageSwitcher language={language} onChange={toggleLanguage} dark />
             </div>
             <div style={styles.logoCircle}>R</div>
             <h1 style={styles.loadingTitle}>Runology</h1>
@@ -865,7 +892,7 @@ export default function App() {
               className="runology-auth-topbar-mobile"
               style={{ ...styles.authCardTopBar, display: "flex" }}
             >
-              <LanguageSwitcher language={language} onChange={toggleLanguage} />
+              <LanguageSwitcher language={language} onChange={toggleLanguage} dark />
             </div>
 
             <div style={styles.authHeader}>
@@ -932,125 +959,232 @@ export default function App() {
       <div className="runology-page" style={styles.page}>
         <div className="runology-auth-shell" style={styles.authShell}>
           <div className="runology-brand-panel" style={styles.brandPanel}>
-            <div className="runology-auth-topbar-desktop" style={styles.authTopBar}>
-              <div style={styles.brandBadge}>{text.brand}</div>
-              <LanguageSwitcher language={language} onChange={toggleLanguage} dark />
+            <div style={styles.brandBadge}>{text.brand}</div>
+
+            <div style={styles.brandContent}>
+              <h1 className="runology-brand-title" style={styles.brandTitle}>
+                {text.heroTitle}
+              </h1>
+
+              <p style={styles.brandText}>{text.heroText}</p>
+
+              <div style={styles.featureList}>
+                <div style={styles.featureBulletRow}>
+                  <span style={styles.featureDot} />
+                  <span style={styles.featureBulletText}>{text.feature1}</span>
+                </div>
+
+                <div style={styles.featureBulletRow}>
+                  <span style={styles.featureDot} />
+                  <span style={styles.featureBulletText}>{text.feature2}</span>
+                </div>
+
+                <div style={styles.featureBulletRow}>
+                  <span style={styles.featureDot} />
+                  <span style={styles.featureBulletText}>{text.feature3}</span>
+                </div>
+              </div>
             </div>
 
-            <h1 className="runology-brand-title" style={styles.brandTitle}>
-              {text.heroTitle}
-            </h1>
-            <p style={styles.brandText}>{text.heroText}</p>
-
-            <div style={styles.featureList}>
-              <div style={styles.featureItem}>{text.feature1}</div>
-              <div style={styles.featureItem}>{text.feature2}</div>
-              <div style={styles.featureItem}>{text.feature3}</div>
-            </div>
+            <div style={styles.brandFooter}>runology.fit</div>
           </div>
 
           <div className="runology-auth-card" style={styles.authCard}>
-            <div className="runology-auth-topbar-mobile" style={styles.authCardTopBar}>
-              <LanguageSwitcher language={language} onChange={toggleLanguage} />
+            <div
+              className="runology-auth-topbar-mobile"
+              style={styles.authCardTopBar}
+            >
+              <LanguageSwitcher language={language} onChange={toggleLanguage} dark />
             </div>
 
-            <div style={styles.authHeader}>
-              <h2 className="runology-auth-title" style={styles.authTitle}>
-                {authMode === "reset" ? text.resetTitle : text.authTitle}
-              </h2>
-              <p style={styles.authSubtitle}>
-                {authMode === "reset" ? text.resetSubtitle : text.authSubtitle}
-              </p>
+            <div
+              className="runology-auth-topbar-desktop"
+              style={styles.authDesktopTopBar}
+            >
+              <LanguageSwitcher language={language} onChange={toggleLanguage} dark />
             </div>
 
-            {authMode === "reset" ? (
-              <form onSubmit={handlePasswordReset} style={styles.form}>
-                <label style={styles.label}>{text.email}</label>
-                <input
-                  className="runology-input"
-                  type="email"
-                  placeholder={text.emailPlaceholder}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  style={styles.input}
-                />
+            <div
+              className="runology-auth-card-inner"
+              style={styles.authCardInner}
+            >
+              <div style={styles.authHeader}>
+                <h2 className="runology-auth-title" style={styles.authTitle}>
+                  {authMode === "reset"
+                    ? text.resetTitle
+                    : authMode === "signup"
+                    ? text.signUp
+                    : authMode === "login"
+                    ? text.signIn
+                    : text.authTitle}
+                </h2>
 
-                <button
-                  className="runology-primary-button"
-                  type="submit"
-                  disabled={resetLoading}
-                  style={styles.primaryButton}
-                >
-                  {resetLoading ? text.resetSending : text.sendReset}
-                </button>
+                <p style={styles.authSubtitle}>
+                  {authMode === "reset"
+                    ? text.resetSubtitle
+                    : authMode === "signup"
+                    ? language === "lv"
+                      ? "Ievadi e-pastu un paroli, lai izveidotu kontu."
+                      : "Enter your email and password to create an account."
+                    : authMode === "login"
+                    ? language === "lv"
+                      ? "Ievadi e-pastu un paroli, lai ieietu."
+                      : "Enter your email and password to sign in."
+                    : text.authSubtitle}
+                </p>
+              </div>
 
-                <button
-                  className="runology-link-button"
-                  type="button"
-                  onClick={goToLoginMode}
-                  style={styles.linkButton}
-                >
-                  {text.backToLogin}
-                </button>
-              </form>
-            ) : (
-              <form style={styles.form}>
-                <label style={styles.label}>{text.email}</label>
-                <input
-                  className="runology-input"
-                  type="email"
-                  placeholder={text.emailPlaceholder}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  style={styles.input}
-                />
+              {authMode === "choose" ? (
+                <div style={styles.form}>
+                  <button
+                    className="runology-primary-button"
+                    type="button"
+                    onClick={goToSignInMode}
+                    style={styles.primaryButton}
+                  >
+                    {text.signIn}
+                  </button>
 
-                <label style={styles.label}>{text.password}</label>
-                <input
-                  className="runology-input"
-                  type="password"
-                  placeholder={text.passwordPlaceholder}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  style={styles.input}
-                />
+                  <button
+                    className="runology-secondary-button"
+                    type="button"
+                    onClick={goToSignUpMode}
+                    style={styles.secondaryButton}
+                  >
+                    {text.signUp}
+                  </button>
+                </div>
+              ) : authMode === "reset" ? (
+                <form onSubmit={handlePasswordReset} style={styles.form}>
+                  <label style={styles.label}>{text.email}</label>
+                  <input
+                    className="runology-input"
+                    type="email"
+                    placeholder={text.emailPlaceholder}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    style={styles.input}
+                  />
 
-                <button
-                  className="runology-primary-button"
-                  type="button"
-                  onClick={handleSignIn}
-                  disabled={authLoading}
-                  style={styles.primaryButton}
-                >
-                  {authLoading ? text.signing : text.signIn}
-                </button>
+                  <button
+                    className="runology-primary-button"
+                    type="submit"
+                    disabled={resetLoading}
+                    style={styles.primaryButton}
+                  >
+                    {resetLoading ? text.resetSending : text.sendReset}
+                  </button>
 
-                <button
-                  className="runology-secondary-button"
-                  type="button"
-                  onClick={handleSignUp}
-                  disabled={authLoading}
-                  style={styles.secondaryButton}
-                >
-                  {authLoading ? text.signing : text.signUp}
-                </button>
+                  <button
+                    className="runology-link-button"
+                    type="button"
+                    onClick={goToLoginMode}
+                    style={styles.linkButton}
+                  >
+                    {text.backToLogin}
+                  </button>
+                </form>
+              ) : authMode === "login" ? (
+                <form style={styles.form}>
+                  <label style={styles.label}>{text.email}</label>
+                  <input
+                    className="runology-input"
+                    type="email"
+                    placeholder={text.emailPlaceholder}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    style={styles.input}
+                  />
 
-                <button
-                  className="runology-link-button"
-                  type="button"
-                  onClick={goToResetMode}
-                  style={styles.linkButton}
-                >
-                  {text.forgotPassword}
-                </button>
-              </form>
-            )}
+                  <label style={styles.label}>{text.password}</label>
+                  <input
+                    className="runology-input"
+                    type="password"
+                    placeholder={text.passwordPlaceholder}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    style={styles.input}
+                  />
 
-            {message && <div style={styles.successBox}>{message}</div>}
-            {error && <div style={styles.errorBox}>{text.errorPrefix}: {error}</div>}
+                  <button
+                    className="runology-primary-button"
+                    type="button"
+                    onClick={handleSignIn}
+                    disabled={authLoading}
+                    style={styles.primaryButton}
+                  >
+                    {authLoading ? text.signing : text.signIn}
+                  </button>
+
+                  <button
+                    className="runology-link-button"
+                    type="button"
+                    onClick={goToResetMode}
+                    style={styles.linkButton}
+                  >
+                    {text.forgotPassword}
+                  </button>
+
+                  <button
+                    className="runology-link-button"
+                    type="button"
+                    onClick={goToLoginMode}
+                    style={styles.linkButton}
+                  >
+                    {text.backToLogin}
+                  </button>
+                </form>
+              ) : (
+                <form style={styles.form}>
+                  <label style={styles.label}>{text.email}</label>
+                  <input
+                    className="runology-input"
+                    type="email"
+                    placeholder={text.emailPlaceholder}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    style={styles.input}
+                  />
+
+                  <label style={styles.label}>{text.password}</label>
+                  <input
+                    className="runology-input"
+                    type="password"
+                    placeholder={text.passwordPlaceholder}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    style={styles.input}
+                  />
+
+                  <button
+                    className="runology-secondary-button"
+                    type="button"
+                    onClick={handleSignUp}
+                    disabled={authLoading}
+                    style={styles.secondaryButton}
+                  >
+                    {authLoading ? text.signing : text.signUp}
+                  </button>
+
+                  <button
+                    className="runology-link-button"
+                    type="button"
+                    onClick={goToLoginMode}
+                    style={styles.linkButton}
+                  >
+                    {text.backToLogin}
+                  </button>
+                </form>
+              )}
+
+              {message && <div style={styles.successBox}>{message}</div>}
+              {error && <div style={styles.errorBox}>{text.errorPrefix}: {error}</div>}
+            </div>
           </div>
         </div>
       </div>
@@ -1106,40 +1240,40 @@ export default function App() {
               />
 
               <label style={styles.label}>{text.distance}</label>
-             <input
-  className="runology-input"
-  type="number"
-  step="0.01"
-  min="0"
-  placeholder={text.distancePlaceholder}
-  value={distance}
-  onChange={(e) => {
-    const value = e.target.value.replace(",", ".");
-    if (/^\d*\.?\d{0,2}$/.test(value)) {
-      setDistance(value);
-    }
-  }}
-  required
-  style={styles.input}
-/>
+              <input
+                className="runology-input"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder={text.distancePlaceholder}
+                value={distance}
+                onChange={(e) => {
+                  const value = e.target.value.replace(",", ".");
+                  if (/^\d*\.?\d{0,2}$/.test(value)) {
+                    setDistance(value);
+                  }
+                }}
+                required
+                style={styles.input}
+              />
 
               <label style={styles.label}>{text.duration}</label>
               <input
-  className="runology-input"
-  type="number"
-  step="0.01"
-  min="0"
-  placeholder={text.durationPlaceholder}
-  value={duration}
-  onChange={(e) => {
-    const value = e.target.value.replace(",", ".");
-    if (/^\d*\.?\d{0,2}$/.test(value)) {
-      setDuration(value);
-    }
-  }}
-  required
-  style={styles.input}
-/>
+                className="runology-input"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder={text.durationPlaceholder}
+                value={duration}
+                onChange={(e) => {
+                  const value = e.target.value.replace(",", ".");
+                  if (/^\d*\.?\d{0,2}$/.test(value)) {
+                    setDuration(value);
+                  }
+                }}
+                required
+                style={styles.input}
+              />
 
               <div style={styles.pacePreviewBox}>
                 <span style={styles.infoLabel}>{text.pace}</span>
@@ -1172,7 +1306,7 @@ export default function App() {
                   className="runology-primary-button"
                   type="submit"
                   disabled={saving}
-                  style={styles.primaryButton}
+                  style={styles.primaryButtonDashboard}
                 >
                   {saving
                     ? text.saving
@@ -1194,8 +1328,8 @@ export default function App() {
               </div>
             </form>
 
-            {message && <div style={styles.successBox}>{message}</div>}
-            {error && <div style={styles.errorBox}>{text.errorPrefix}: {error}</div>}
+            {message && <div style={styles.successBoxDashboard}>{message}</div>}
+            {error && <div style={styles.errorBoxDashboard}>{text.errorPrefix}: {error}</div>}
           </div>
 
           <div className="runology-list-card" style={styles.listCard}>
@@ -1285,15 +1419,14 @@ export default function App() {
 const styles = {
   page: {
     minHeight: "100vh",
-    background:
-      "radial-gradient(circle at top left, #fcfffd 0%, #f3f6f4 45%, #edf1ee 100%)",
+    background: "#111111",
     fontFamily:
       'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    padding: "24px",
+    padding: "32px",
     boxSizing: "border-box",
   },
   centerWrap: {
-    minHeight: "calc(100vh - 48px)",
+    minHeight: "calc(100vh - 64px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -1301,14 +1434,12 @@ const styles = {
   loadingCard: {
     width: "100%",
     maxWidth: "440px",
-    background: "rgba(255,255,255,0.78)",
-    backdropFilter: "blur(18px)",
-    WebkitBackdropFilter: "blur(18px)",
-    borderRadius: "34px",
+    background: "#2a2a2a",
+    borderRadius: "22px",
     padding: "24px 30px 42px",
     textAlign: "center",
-    boxShadow: "0 24px 80px rgba(17, 24, 18, 0.08)",
-    border: "1px solid rgba(255,255,255,0.82)",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
+    border: "1px solid #2f2f2f",
   },
   loadingTopBar: {
     display: "flex",
@@ -1318,8 +1449,8 @@ const styles = {
   logoCircle: {
     width: "80px",
     height: "80px",
-    borderRadius: "28px",
-    background: "linear-gradient(135deg, #264734 0%, #3e6b50 100%)",
+    borderRadius: "24px",
+    background: "linear-gradient(135deg, #22482e 0%, #203f2b 100%)",
     color: "#ffffff",
     display: "flex",
     alignItems: "center",
@@ -1327,131 +1458,155 @@ const styles = {
     fontSize: "30px",
     fontWeight: "800",
     margin: "0 auto 18px",
-    boxShadow: "0 18px 36px rgba(30, 53, 40, 0.22)",
+    boxShadow: "0 18px 36px rgba(0, 0, 0, 0.28)",
   },
   loadingTitle: {
     margin: "0 0 8px 0",
     fontSize: "36px",
     letterSpacing: "-0.04em",
-    color: "#17231b",
+    color: "#f6efe5",
   },
   loadingText: {
     margin: 0,
-    color: "#657067",
+    color: "#d1c5b2",
     fontSize: "16px",
   },
   authShell: {
     maxWidth: "1180px",
     margin: "0 auto",
+    minHeight: "calc(100vh - 64px)",
     display: "grid",
-    gridTemplateColumns: "1.08fr 0.92fr",
-    gap: "24px",
-    alignItems: "stretch",
-  },
-  authTopBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "12px",
-    marginBottom: "20px",
+    gridTemplateColumns: "1fr 1.08fr",
+    gap: "0",
+    borderRadius: "22px",
+    overflow: "hidden",
+    background: "#242424",
+    border: "1px solid #2f2f2f",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
   },
   brandPanel: {
-    background:
-      "linear-gradient(145deg, rgba(20,29,23,0.96) 0%, rgba(34,53,42,0.94) 45%, rgba(68,96,79,0.90) 100%)",
-    color: "#ffffff",
-    borderRadius: "38px",
-    padding: "48px",
-    boxShadow: "0 30px 90px rgba(16, 24, 20, 0.20)",
-    minHeight: "650px",
+    background: "linear-gradient(180deg, #22482e 0%, #203f2b 100%)",
+    color: "#f5efe6",
+    padding: "42px 46px",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "center",
-    border: "1px solid rgba(255,255,255,0.08)",
+    minHeight: "720px",
   },
   brandBadge: {
-    display: "inline-block",
+    display: "inline-flex",
     alignSelf: "flex-start",
-    background: "rgba(255, 255, 255, 0.10)",
-    border: "1px solid rgba(255, 255, 255, 0.14)",
-    borderRadius: "999px",
-    padding: "9px 15px",
-    fontSize: "12px",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1px solid rgba(215, 227, 218, 0.28)",
+    color: "#dfe8e2",
+    borderRadius: "10px",
+    padding: "6px 12px",
+    fontSize: "13px",
     fontWeight: "700",
-    letterSpacing: "1.5px",
+    letterSpacing: "1px",
+    textTransform: "uppercase",
+  },
+  brandContent: {
+    marginTop: "70px",
+    maxWidth: "420px",
   },
   brandTitle: {
-    fontSize: "58px",
-    lineHeight: 1.02,
-    margin: "0 0 18px 0",
-    maxWidth: "540px",
-    letterSpacing: "-0.05em",
+    margin: "0 0 26px 0",
+    fontSize: "66px",
+    lineHeight: 0.98,
+    letterSpacing: "-0.04em",
+    fontWeight: "500",
+    color: "#f4eadf",
+    fontFamily: 'Georgia, "Times New Roman", serif',
   },
   brandText: {
+    margin: "0 0 34px 0",
     fontSize: "18px",
-    lineHeight: 1.8,
-    color: "rgba(255, 255, 255, 0.82)",
-    margin: "0 0 30px 0",
-    maxWidth: "520px",
+    lineHeight: 1.55,
+    color: "#c7d6c7",
+    maxWidth: "360px",
   },
   featureList: {
     display: "grid",
     gap: "14px",
-    marginTop: "10px",
+    marginTop: "8px",
   },
-  featureItem: {
-    background: "rgba(255, 255, 255, 0.07)",
-    border: "1px solid rgba(255, 255, 255, 0.10)",
-    borderRadius: "20px",
-    padding: "14px 16px",
+  featureBulletRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+  },
+  featureDot: {
+    width: "7px",
+    height: "7px",
+    borderRadius: "999px",
+    background: "#8ad08d",
+    marginTop: "10px",
+    flexShrink: 0,
+  },
+  featureBulletText: {
+    fontSize: "16px",
+    lineHeight: 1.55,
+    color: "#d7e3d8",
+    fontWeight: "600",
+  },
+  brandFooter: {
+    marginTop: "auto",
+    color: "rgba(211, 225, 214, 0.45)",
     fontSize: "15px",
     fontWeight: "600",
-    maxWidth: "430px",
-    backdropFilter: "blur(10px)",
   },
   authCard: {
-    background: "rgba(255,255,255,0.82)",
-    backdropFilter: "blur(18px)",
-    WebkitBackdropFilter: "blur(18px)",
-    borderRadius: "34px",
-    padding: "26px 36px 36px",
-    boxShadow: "0 24px 80px rgba(17, 24, 18, 0.07)",
-    border: "1px solid rgba(255,255,255,0.82)",
+    background: "#2a2a2a",
+    color: "#f5f2eb",
+    padding: "42px 40px",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "center",
+  },
+  authDesktopTopBar: {
+    display: "flex",
+    justifyContent: "flex-end",
+    marginBottom: "38px",
   },
   authCardTopBar: {
     display: "none",
     justifyContent: "flex-end",
-    marginBottom: "8px",
+    marginBottom: "24px",
+  },
+  authCardInner: {
+    width: "100%",
+    maxWidth: "424px",
+    margin: "40px 0 0 0",
+    alignSelf: "center",
   },
   authHeader: {
-    marginBottom: "26px",
+    marginBottom: "28px",
   },
   authTitle: {
-    margin: "0 0 8px 0",
-    fontSize: "34px",
-    color: "#17231b",
-    letterSpacing: "-0.04em",
+    margin: "0 0 10px 0",
+    fontSize: "26px",
+    lineHeight: 1.15,
+    color: "#f6efe5",
+    letterSpacing: "-0.03em",
+    fontWeight: "700",
   },
   authSubtitle: {
     margin: 0,
-    color: "#6a756d",
-    fontSize: "15px",
-    lineHeight: 1.7,
+    color: "#d1c5b2",
+    fontSize: "16px",
+    lineHeight: 1.5,
+    maxWidth: "390px",
   },
   appShell: {
     maxWidth: "1260px",
     margin: "0 auto",
   },
   header: {
-    background: "rgba(255,255,255,0.84)",
-    backdropFilter: "blur(18px)",
-    WebkitBackdropFilter: "blur(18px)",
-    borderRadius: "32px",
+    background: "#1b1b1b",
+    borderRadius: "24px",
     padding: "30px 32px",
-    boxShadow: "0 20px 60px rgba(17, 24, 18, 0.06)",
-    border: "1px solid rgba(255,255,255,0.82)",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.25)",
+    border: "1px solid #292929",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1472,23 +1627,23 @@ const styles = {
     display: "inline-block",
     padding: "7px 12px",
     borderRadius: "999px",
-    background: "#f6f8f6",
-    color: "#2d4236",
+    background: "#262626",
+    color: "#d7e3d8",
     fontSize: "12px",
     fontWeight: "800",
     letterSpacing: "1.2px",
     marginBottom: "10px",
-    border: "1px solid #e7ece8",
+    border: "1px solid #353535",
   },
   appTitle: {
     margin: "0 0 8px 0",
     fontSize: "36px",
-    color: "#17231b",
+    color: "#f6efe5",
     letterSpacing: "-0.05em",
   },
   appSubtitle: {
     margin: 0,
-    color: "#69756c",
+    color: "#c0b5a4",
     fontSize: "15px",
     lineHeight: 1.6,
     wordBreak: "break-word",
@@ -1500,24 +1655,20 @@ const styles = {
     alignItems: "start",
   },
   formCard: {
-    background: "rgba(255,255,255,0.84)",
-    backdropFilter: "blur(18px)",
-    WebkitBackdropFilter: "blur(18px)",
-    borderRadius: "32px",
+    background: "#1b1b1b",
+    borderRadius: "24px",
     padding: "28px",
-    boxShadow: "0 20px 60px rgba(17, 24, 18, 0.06)",
-    border: "1px solid rgba(255,255,255,0.82)",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.25)",
+    border: "1px solid #292929",
     position: "sticky",
     top: "24px",
   },
   listCard: {
-    background: "rgba(255,255,255,0.84)",
-    backdropFilter: "blur(18px)",
-    WebkitBackdropFilter: "blur(18px)",
-    borderRadius: "32px",
+    background: "#1b1b1b",
+    borderRadius: "24px",
     padding: "28px",
-    boxShadow: "0 20px 60px rgba(17, 24, 18, 0.06)",
-    border: "1px solid rgba(255,255,255,0.82)",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.25)",
+    border: "1px solid #292929",
     minHeight: "500px",
   },
   sectionHeader: {
@@ -1526,12 +1677,12 @@ const styles = {
   sectionTitle: {
     margin: "0 0 6px 0",
     fontSize: "26px",
-    color: "#17231b",
+    color: "#f6efe5",
     letterSpacing: "-0.04em",
   },
   sectionText: {
     margin: 0,
-    color: "#728077",
+    color: "#c0b5a4",
     fontSize: "14px",
     lineHeight: 1.7,
   },
@@ -1547,48 +1698,48 @@ const styles = {
     marginTop: "10px",
   },
   label: {
-    fontSize: "14px",
+    fontSize: "15px",
     fontWeight: "700",
-    color: "#304438",
-    marginTop: "6px",
+    color: "#e6d9c4",
+    marginTop: "10px",
   },
   input: {
     width: "100%",
     boxSizing: "border-box",
-    padding: "15px 16px",
+    padding: "16px 16px",
     fontSize: "16px",
-    borderRadius: "20px",
-    border: "1px solid #e4eae6",
-    background: "rgba(252,253,252,0.98)",
+    borderRadius: "10px",
+    border: "1px solid #4a443c",
+    background: "#2f2f2f",
     outline: "none",
-    color: "#17231b",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.92)",
+    color: "#f6efe5",
+    boxShadow: "none",
   },
   textarea: {
     width: "100%",
     boxSizing: "border-box",
     padding: "15px 16px",
     fontSize: "16px",
-    borderRadius: "20px",
-    border: "1px solid #e4eae6",
-    background: "rgba(252,253,252,0.98)",
+    borderRadius: "14px",
+    border: "1px solid #343434",
+    background: "#242424",
     outline: "none",
-    color: "#17231b",
+    color: "#f6efe5",
     minHeight: "124px",
     resize: "vertical",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.92)",
+    boxShadow: "none",
   },
   pacePreviewBox: {
-    background: "linear-gradient(180deg, #fbfcfb 0%, #f5f7f5 100%)",
-    border: "1px solid #eaefeb",
-    borderRadius: "22px",
+    background: "#242424",
+    border: "1px solid #343434",
+    borderRadius: "16px",
     padding: "16px",
     marginTop: "6px",
   },
   pacePreviewValue: {
     fontSize: "20px",
     fontWeight: "700",
-    color: "#17231b",
+    color: "#f6efe5",
     marginTop: "6px",
     letterSpacing: "-0.02em",
   },
@@ -1598,28 +1749,28 @@ const styles = {
     gap: "10px",
   },
   emojiButton: {
-    border: "1px solid #e7ece8",
-    background: "rgba(251,252,251,0.98)",
-    borderRadius: "18px",
+    border: "1px solid #343434",
+    background: "#242424",
+    borderRadius: "16px",
     minWidth: "50px",
     minHeight: "50px",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0 8px 18px rgba(17, 24, 18, 0.03)",
+    boxShadow: "none",
   },
   emojiButtonActive: {
-    border: "1px solid #40584a",
-    background: "linear-gradient(180deg, #ffffff 0%, #f3f6f4 100%)",
-    borderRadius: "18px",
+    border: "1px solid #536557",
+    background: "#2a322c",
+    borderRadius: "16px",
     minWidth: "50px",
     minHeight: "50px",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0 12px 24px rgba(17, 24, 18, 0.08)",
+    boxShadow: "none",
   },
   emojiIcon: {
     fontSize: "24px",
@@ -1627,86 +1778,121 @@ const styles = {
   },
   primaryButton: {
     width: "100%",
+    border: "1px solid #5a534a",
+    borderRadius: "12px",
+    padding: "15px 18px",
+    fontSize: "17px",
+    fontWeight: "700",
+    cursor: "pointer",
+    color: "#f6efe5",
+    background: "#2f2f2f",
+    boxShadow: "none",
+    marginTop: "10px",
+  },
+  secondaryButton: {
+    width: "100%",
+    border: "1px solid #5a534a",
+    borderRadius: "12px",
+    padding: "15px 18px",
+    fontSize: "17px",
+    fontWeight: "700",
+    cursor: "pointer",
+    color: "#f6efe5",
+    background: "#2f2f2f",
+    boxShadow: "none",
+  },
+  primaryButtonDashboard: {
+    width: "100%",
     border: "none",
-    borderRadius: "20px",
+    borderRadius: "16px",
     padding: "15px 18px",
     fontSize: "16px",
     fontWeight: "700",
     cursor: "pointer",
     color: "#ffffff",
     background: "linear-gradient(135deg, #203428 0%, #3a5244 100%)",
-    boxShadow: "0 18px 30px rgba(25, 38, 30, 0.16)",
-  },
-  secondaryButton: {
-    width: "100%",
-    border: "1px solid #e2e8e4",
-    borderRadius: "20px",
-    padding: "15px 18px",
-    fontSize: "16px",
-    fontWeight: "700",
-    cursor: "pointer",
-    color: "#203428",
-    background: "rgba(252,253,252,0.98)",
+    boxShadow: "0 18px 30px rgba(0, 0, 0, 0.22)",
   },
   cancelButton: {
-    border: "1px solid #e2e8e4",
-    borderRadius: "20px",
+    border: "1px solid #343434",
+    borderRadius: "16px",
     padding: "15px 18px",
     fontSize: "16px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#203428",
-    background: "rgba(252,253,252,0.98)",
+    color: "#f6efe5",
+    background: "#242424",
     whiteSpace: "nowrap",
   },
   linkButton: {
     border: "none",
     background: "transparent",
-    padding: "8px 2px",
-    fontSize: "14px",
+    padding: "10px 0 0 0",
+    fontSize: "15px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#2f4a3a",
+    color: "#e7d9c5",
     textAlign: "left",
   },
   logoutButton: {
-    border: "1px solid #e2e8e4",
-    borderRadius: "20px",
+    border: "1px solid #343434",
+    borderRadius: "16px",
     padding: "12px 18px",
     fontSize: "15px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#203428",
-    background: "rgba(252,253,252,0.98)",
+    color: "#f6efe5",
+    background: "#242424",
     whiteSpace: "nowrap",
   },
   successBox: {
     marginTop: "16px",
     padding: "14px 16px",
-    borderRadius: "20px",
-    background: "linear-gradient(180deg, #f7faf8 0%, #f1f5f2 100%)",
-    color: "#23362b",
-    border: "1px solid #e3ebe6",
+    borderRadius: "12px",
+    background: "#243629",
+    color: "#d8ebda",
+    border: "1px solid #35523c",
     fontSize: "14px",
     lineHeight: 1.6,
   },
   errorBox: {
     marginTop: "16px",
     padding: "14px 16px",
-    borderRadius: "20px",
-    background: "linear-gradient(180deg, #fff8f8 0%, #fdf2f2 100%)",
-    color: "#a11d1d",
-    border: "1px solid #f0d9d9",
+    borderRadius: "12px",
+    background: "#3a2424",
+    color: "#ffd4d4",
+    border: "1px solid #6a3838",
+    fontSize: "14px",
+    lineHeight: 1.6,
+    wordBreak: "break-word",
+  },
+  successBoxDashboard: {
+    marginTop: "16px",
+    padding: "14px 16px",
+    borderRadius: "16px",
+    background: "#243629",
+    color: "#d8ebda",
+    border: "1px solid #35523c",
+    fontSize: "14px",
+    lineHeight: 1.6,
+  },
+  errorBoxDashboard: {
+    marginTop: "16px",
+    padding: "14px 16px",
+    borderRadius: "16px",
+    background: "#3a2424",
+    color: "#ffd4d4",
+    border: "1px solid #6a3838",
     fontSize: "14px",
     lineHeight: 1.6,
     wordBreak: "break-word",
   },
   emptyState: {
     padding: "34px",
-    borderRadius: "24px",
-    background: "linear-gradient(180deg, #fcfdfc 0%, #f5f7f5 100%)",
-    border: "1px dashed #e3e9e5",
-    color: "#6d7a72",
+    borderRadius: "18px",
+    background: "#242424",
+    border: "1px dashed #343434",
+    color: "#c0b5a4",
     fontSize: "15px",
     textAlign: "center",
   },
@@ -1715,11 +1901,11 @@ const styles = {
     gap: "18px",
   },
   runCard: {
-    borderRadius: "28px",
+    borderRadius: "22px",
     padding: "22px",
-    background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,249,248,0.98) 100%)",
-    border: "1px solid #ebefec",
-    boxShadow: "0 16px 34px rgba(17, 24, 18, 0.04)",
+    background: "#242424",
+    border: "1px solid #343434",
+    boxShadow: "none",
   },
   runTopRow: {
     display: "flex",
@@ -1732,17 +1918,17 @@ const styles = {
   runDate: {
     fontSize: "18px",
     fontWeight: "800",
-    color: "#17231b",
+    color: "#f6efe5",
     letterSpacing: "-0.02em",
   },
   runPill: {
     padding: "8px 12px",
     borderRadius: "999px",
-    background: "#f6f8f6",
-    color: "#31463a",
+    background: "#2e2e2e",
+    color: "#d7e3d8",
     fontWeight: "800",
     fontSize: "13px",
-    border: "1px solid #e7ece8",
+    border: "1px solid #3a3a3a",
   },
   metaChipRow: {
     display: "flex",
@@ -1753,13 +1939,13 @@ const styles = {
     minWidth: "42px",
     height: "42px",
     borderRadius: "999px",
-    background: "linear-gradient(180deg, #ffffff 0%, #f4f6f4 100%)",
-    border: "1px solid #eaefeb",
+    background: "#2e2e2e",
+    border: "1px solid #3a3a3a",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: "20px",
-    boxShadow: "0 6px 14px rgba(17, 24, 18, 0.03)",
+    boxShadow: "none",
   },
   runInfoRow: {
     display: "grid",
@@ -1768,9 +1954,9 @@ const styles = {
     marginBottom: "14px",
   },
   infoBlock: {
-    background: "linear-gradient(180deg, #fcfdfc 0%, #f6f8f6 100%)",
-    border: "1px solid #eaefeb",
-    borderRadius: "20px",
+    background: "#2a2a2a",
+    border: "1px solid #383838",
+    borderRadius: "16px",
     padding: "14px",
     display: "flex",
     flexDirection: "column",
@@ -1781,12 +1967,12 @@ const styles = {
     fontWeight: "800",
     letterSpacing: "0.4px",
     textTransform: "uppercase",
-    color: "#708077",
+    color: "#b8aa95",
   },
   infoValue: {
     fontSize: "18px",
     fontWeight: "700",
-    color: "#17231b",
+    color: "#f6efe5",
     letterSpacing: "-0.02em",
   },
   runActionRow: {
@@ -1797,67 +1983,67 @@ const styles = {
   },
   editButton: {
     border: "none",
-    borderRadius: "15px",
+    borderRadius: "14px",
     padding: "11px 14px",
     fontSize: "14px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#203428",
-    background: "linear-gradient(180deg, #f6f8f6 0%, #eef2ef 100%)",
+    color: "#f6efe5",
+    background: "#2e2e2e",
   },
   deleteButton: {
     border: "none",
-    borderRadius: "15px",
+    borderRadius: "14px",
     padding: "11px 14px",
     fontSize: "14px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#9a1c1c",
-    background: "linear-gradient(180deg, #fff7f7 0%, #fdf0f0 100%)",
+    color: "#ffd4d4",
+    background: "#3a2424",
   },
   notesBox: {
-    background: "linear-gradient(180deg, #fdfefd 0%, #f7f9f7 100%)",
-    border: "1px solid #eaefeb",
-    borderRadius: "20px",
+    background: "#2a2a2a",
+    border: "1px solid #383838",
+    borderRadius: "16px",
     padding: "15px",
   },
   notesText: {
     margin: "8px 0 0 0",
     fontSize: "15px",
     lineHeight: 1.7,
-    color: "#3a4e43",
+    color: "#ddd1c0",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   },
   languageSwitch: {
     display: "inline-flex",
     alignItems: "center",
-    gap: "4px",
-    background: "rgba(248,249,248,0.98)",
-    border: "1px solid #e6ebe7",
-    borderRadius: "999px",
-    padding: "4px",
-    boxShadow: "0 8px 18px rgba(17, 24, 18, 0.03)",
+    gap: "6px",
+    background: "transparent",
+    border: "1px solid #545047",
+    borderRadius: "12px",
+    padding: "0",
+    boxShadow: "none",
   },
   languageButton: {
     border: "none",
     background: "transparent",
     color: "#32473b",
-    borderRadius: "999px",
-    padding: "8px 12px",
-    fontSize: "13px",
+    borderRadius: "10px",
+    padding: "10px 14px",
+    fontSize: "14px",
     fontWeight: "800",
     cursor: "pointer",
   },
   languageButtonActive: {
     border: "none",
-    background: "#22392c",
+    background: "transparent",
     color: "#ffffff",
-    borderRadius: "999px",
-    padding: "8px 12px",
-    fontSize: "13px",
+    borderRadius: "10px",
+    padding: "10px 14px",
+    fontSize: "14px",
     fontWeight: "800",
     cursor: "pointer",
-    boxShadow: "0 10px 18px rgba(17, 24, 18, 0.12)",
+    boxShadow: "none",
   },
 };
