@@ -59,11 +59,6 @@ const responsiveCss = `
       font-size: 28px !important;
     }
 
-    .runology-frozen-dashboard {
-      top: 10px !important;
-      margin-bottom: 18px !important;
-      padding-bottom: 10px !important;
-    }
 
     .runology-header {
       padding: 22px !important;
@@ -416,7 +411,7 @@ export default function App() {
         noRuns: "Vēl nav nevienas aktivitātes. Pievieno pirmo ierakstu.",
         noNotes: "Nav piezīmju.",
         mustLogin: "Tev vispirms jāielogojas.",
-        invalidPace: "Ievadi distance un ilgumu, lai redzētu tempu.",
+        invalidPace: "",
         errorPrefix: "Kļūda",
         distanceLabel: "Distance",
         durationLabel: "Ilgums",
@@ -524,7 +519,7 @@ export default function App() {
         noRuns: "No activities yet. Add your first entry.",
         noNotes: "No notes.",
         mustLogin: "You must sign in first.",
-        invalidPace: "Enter distance and duration to see pace.",
+        invalidPace: "",
         errorPrefix: "Error",
         distanceLabel: "Distance",
         durationLabel: "Duration",
@@ -1660,7 +1655,6 @@ function getDistanceUnitLabel() {
   return (
     <div className="runology-page" style={styles.page}>
       <div style={styles.appShell}>
-        <div className="runology-frozen-dashboard" style={styles.frozenDashboard}>
         <header className="runology-header" style={styles.header}>
           <div style={styles.headerLeft}>
             <button
@@ -1750,8 +1744,6 @@ function getDistanceUnitLabel() {
               {language === "lv" ? "Vidēji" : "Average"} {stats.gymAverageDuration}
             </div>
           </div>
-        </div>
-
         </div>
 
         {activeView === "runs" ? (
@@ -2323,17 +2315,6 @@ const styles = {
     maxWidth: "1260px",
     margin: "0 auto",
   },
-  frozenDashboard: {
-    position: "sticky",
-    top: "16px",
-    zIndex: 50,
-    background: "rgba(17, 17, 17, 0.92)",
-    backdropFilter: "blur(18px)",
-    WebkitBackdropFilter: "blur(18px)",
-    paddingBottom: "12px",
-    marginBottom: "12px",
-    borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
-  },
   header: {
     background: "#1b1b1b",
     borderRadius: "24px",
@@ -2459,7 +2440,7 @@ profileSubheading: {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: "16px",
-  marginBottom: "0",
+  marginBottom: "28px",
 },
 
 statCard: {
