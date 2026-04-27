@@ -1422,6 +1422,7 @@ async function fetchProfile() {
       setError(formatSupabaseError(error.message, language));
     } else {
       setMessage(text.signUpSuccess);
+      setAuthMode("signupSuccess");
       setEmail("");
       setPassword("");
     }
@@ -2293,6 +2294,14 @@ function renderInsightsPanel() {
     setPassword("");
   }
 
+  function goToChooseMode() {
+    setAuthMode("choose");
+    setMessage("");
+    setError("");
+    setEmail("");
+    setPassword("");
+  }
+
   function goToResetMode() {
     setAuthMode("reset");
     setMessage("");
@@ -2486,6 +2495,10 @@ function renderInsightsPanel() {
                 <h2 className="runology-auth-title" style={styles.authTitle}>
                   {authMode === "reset"
                     ? text.resetTitle
+                    : authMode === "signupSuccess"
+                    ? language === "lv"
+                      ? "Pārbaudi e-pastu"
+                      : "Check your email"
                     : authMode === "signup"
                     ? text.signUp
                     : authMode === "login"
@@ -2496,6 +2509,10 @@ function renderInsightsPanel() {
                 <p style={styles.authSubtitle}>
                   {authMode === "reset"
                     ? text.resetSubtitle
+                    : authMode === "signupSuccess"
+                    ? language === "lv"
+                      ? "Mēs nosūtījām apstiprinājuma saiti uz tavu e-pastu."
+                      : "We sent a confirmation link to your email."
                     : authMode === "signup"
                     ? language === "lv"
                       ? "Ievadi e-pastu un paroli, lai izveidotu kontu."
@@ -2559,6 +2576,30 @@ function renderInsightsPanel() {
                     {text.backToLogin}
                   </button>
                 </form>
+              ) : authMode === "signupSuccess" ? (
+                <div style={styles.form}>
+                  <div style={styles.successBox}>
+                    {text.signUpSuccess}
+                  </div>
+
+                  <button
+                    className="runology-primary-button"
+                    type="button"
+                    onClick={goToSignInMode}
+                    style={styles.primaryButton}
+                  >
+                    {text.signIn}
+                  </button>
+
+                  <button
+                    className="runology-link-button"
+                    type="button"
+                    onClick={goToChooseMode}
+                    style={styles.linkButton}
+                  >
+                    {text.backToLogin}
+                  </button>
+                </div>
               ) : authMode === "login" ? (
                 <form style={styles.form}>
                   <label style={styles.label}>{text.email}</label>
@@ -2656,7 +2697,9 @@ function renderInsightsPanel() {
                 </form>
               )}
 
-              {message && <div style={styles.successBox}>{message}</div>}
+              {message && authMode !== "signupSuccess" && (
+                <div style={styles.successBox}>{message}</div>
+              )}
               {error && <div style={styles.errorBox}>{text.errorPrefix}: {error}</div>}
             </div>
           </div>
@@ -4537,8 +4580,8 @@ statSubtext: {
     alignItems: "center",
     justifyContent: "center",
     color: "#ffffff",
-    fontSize: "12px",
-    fontWeight: "800",
+    fontSize: "11px",
+    fontWeight: "400",
     lineHeight: 1.1,
     letterSpacing: "0.01em",
     boxShadow: "none",
