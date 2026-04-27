@@ -227,6 +227,16 @@ const responsiveCss = `
       width: 100% !important;
     }
 
+    .runology-modal-backdrop {
+      padding: 10px !important;
+      align-items: flex-start !important;
+    }
+
+    .runology-form-card {
+      max-height: calc(100vh - 20px) !important;
+      overflow-y: auto !important;
+    }
+
     .runology-profile-password-header {
       flex-direction: column !important;
       align-items: stretch !important;
@@ -617,6 +627,7 @@ export default function App() {
         notesLabel: "Piezīmes",
         profileTab: "Profils",
         runsTab: "Aktivitātes",
+        dashboardTab: "Dashboard",
         profileTitle: "Tavs profils",
         profileText: "Pārvaldi savu profilu un iestatījumus.",
         username: "Lietotājvārds",
@@ -766,6 +777,7 @@ export default function App() {
         notesLabel: "Notes",
         profileTab: "Profile",
         runsTab: "Activities",
+        dashboardTab: "Dashboard",
         profileTitle: "Your profile",
         profileText: "Manage your profile and preferences.",
         username: "Username",
@@ -2655,6 +2667,20 @@ function renderInsightsPanel() {
               <button
                 type="button"
                 onClick={() => {
+                  setActiveView("dashboard");
+                  setShowInsights(false);
+                }}
+                style={
+                  activeView === "dashboard"
+                    ? styles.viewSwitchButtonActive
+                    : styles.viewSwitchButton
+                }
+              >
+                {text.dashboardTab}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   setActiveView("insights");
                   setShowInsights(false);
                 }}
@@ -2707,7 +2733,20 @@ function renderInsightsPanel() {
           </div>
         </header>
 
-        <div className="runology-stats-grid" style={styles.statsGrid}>
+        {activeView === "dashboard" && (
+          <section className="runology-dashboard-page" style={styles.dashboardPage}>
+            <div style={styles.sectionHeaderCompact}>
+              <h2 className="runology-section-title" style={styles.sectionTitle}>
+                {text.dashboardTab}
+              </h2>
+              <p style={styles.sectionSubtitle}>
+                {language === "lv"
+                  ? "Īss pārskats par šo mēnesi."
+                  : "A quick overview of this month."}
+              </p>
+            </div>
+
+            <div className="runology-stats-grid" style={styles.statsGrid}>
           <div style={styles.statCard}>
             <div style={styles.statLabel}>
               {language === "lv" ? "Aktivitātes šajā mēnesī" : "Activities this month"}
@@ -2739,7 +2778,10 @@ function renderInsightsPanel() {
               {language === "lv" ? "Vidēji" : "Average"} {stats.gymAverageDuration}
             </div>
           </div>
-        </div>
+            </div>
+
+          </section>
+        )}
 
         {activeView === "insights" && renderInsightsPanel()}
 
@@ -3612,6 +3654,9 @@ passwordToggleButton: {
     gap: "24px",
     alignItems: "start",
   },
+  dashboardPage: {
+    marginBottom: "28px",
+  },
   statsGrid: {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
@@ -3934,7 +3979,9 @@ statSubtext: {
     overflowY: "auto",
   },
   modalCard: {
-    width: "min(720px, 100%)",
+    width: "min(640px, 100%)",
+    maxHeight: "calc(100vh - 56px)",
+    overflowY: "auto",
     position: "relative",
     background: "rgba(26, 26, 26, 0.92)",
     borderRadius: "24px",
