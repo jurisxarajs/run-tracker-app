@@ -497,6 +497,9 @@ export default function App() {
   const [durationHours, setDurationHours] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("");
   const [durationSeconds, setDurationSeconds] = useState("");
+  const [screenshotFile, setScreenshotFile] = useState(null);
+  const [screenshotPreview, setScreenshotPreview] = useState(null);
+  const [screenshotImportLoading, setScreenshotImportLoading] = useState(false);
   const [notes, setNotes] = useState("");
   const [mood, setMood] = useState("🙂");
   const [weather, setWeather] = useState("☀️");
@@ -608,6 +611,16 @@ export default function App() {
         editRunTitle: "Labot aktivitāti",
         addRunText: "Saglabā savu nākamo aktivitāti.",
         editRunText: "Maini izvēlētā ieraksta datus un saglabā izmaiņas.",
+        importScreenshot: "Importēt no Strava screenshot",
+        importScreenshotHelp: "Izvēlies Strava screenshot, pārbaudi priekšskatījumu un nospied Importēt datus.",
+        chooseScreenshot: "Izvēlēties attēlu",
+        importScreenshotButton: "Importēt datus",
+        importingScreenshot: "Importē...",
+        removeScreenshot: "Noņemt attēlu",
+        screenshotPreview: "Screenshot priekšskatījums",
+        importScreenshotSuccess: "Dati importēti. Pārbaudi laukus pirms saglabāšanas.",
+        importScreenshotNoFile: "Vispirms izvēlies attēlu.",
+        importScreenshotError: "Neizdevās importēt datus no screenshot.",
         date: "Datums",
         activityType: "Aktivitātes tips",
         runType: "Skrējiens",
@@ -764,6 +777,16 @@ export default function App() {
         editRunTitle: "Edit activity",
         addRunText: "Save your next activity.",
         editRunText: "Update the selected entry and save your changes.",
+        importScreenshot: "Import from Strava screenshot",
+        importScreenshotHelp: "Choose a Strava screenshot, check the preview, then import the data.",
+        chooseScreenshot: "Choose image",
+        importScreenshotButton: "Import data",
+        importingScreenshot: "Importing...",
+        removeScreenshot: "Remove image",
+        screenshotPreview: "Screenshot preview",
+        importScreenshotSuccess: "Data imported. Review the fields before saving.",
+        importScreenshotNoFile: "Choose an image first.",
+        importScreenshotError: "Could not import data from screenshot.",
         date: "Date",
         activityType: "Activity type",
         runType: "Run",
@@ -1673,6 +1696,92 @@ async function handleSaveProfile(e) {
 }
 
 
+
+  function handleScreenshotChange(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (screenshotPreview) {
+      URL.revokeObjectURL(screenshotPreview);
+    }
+
+    setScreenshotFile(file);
+    setScreenshotPreview(URL.createObjectURL(file));
+  }
+
+  function handleRemoveScreenshot() {
+    if (screenshotPreview) {
+      URL.revokeObjectURL(screenshotPreview);
+    }
+
+    setScreenshotFile(null);
+    setScreenshotPreview(null);
+    setScreenshotImportLoading(false);
+  }
+
+  async function handleImportScreenshotData() {
+    if (!screenshotFile) {
+      setError(text.importScreenshotNoFile);
+      return;
+    }
+
+    setScreenshotImportLoading(true);
+    setError("");
+    setMessage("");
+
+    const formData = new FormData();
+    formData.append("file", screenshotFile);
+
+    try {
+      const response = await fetch(
+        "https://pmfwfbgdpfvdjdrcpqqm.supabase.co/functions/v1/import-strava-screenshot",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Import failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data || typeof data !== "object") {
+        throw new Error("Empty import response");
+      }
+
+      if (data.activity_type) {
+        const importedType = String(data.activity_type).toLowerCase();
+
+        if (["run", "gym", "hike"].includes(importedType)) {
+          setActivityType(importedType);
+        } else if (["walk", "walking"].includes(importedType)) {
+          setActivityType("hike");
+        } else {
+          setActivityType("run");
+        }
+      }
+
+      if (data.date) setDate(String(data.date));
+      if (data.distance !== undefined) setDistance(String(data.distance));
+      if (data.duration_hours !== undefined) setDurationHours(String(data.duration_hours));
+      if (data.duration_minutes !== undefined) setDurationMinutes(String(data.duration_minutes));
+      if (data.duration_seconds !== undefined) setDurationSeconds(String(data.duration_seconds));
+
+      setMessage(text.importScreenshotSuccess);
+      console.log("Strava screenshot import result:", data);
+    } catch (err) {
+      console.error("Strava screenshot import failed:", err);
+      setError(text.importScreenshotError);
+    } finally {
+      setScreenshotImportLoading(false);
+    }
+  }
+
   function resetForm() {
     setDate(new Date().toISOString().slice(0, 10));
     setActivityType("run");
@@ -1680,6 +1789,12 @@ async function handleSaveProfile(e) {
     setDurationHours("");
     setDurationMinutes("");
     setDurationSeconds("");
+    setScreenshotFile(null);
+    setScreenshotImportLoading(false);
+    if (screenshotPreview) {
+      URL.revokeObjectURL(screenshotPreview);
+    }
+    setScreenshotPreview(null);
     setNotes("");
     setMood("🙂");
     setWeather("☀️");
@@ -1827,8 +1942,8 @@ function formatDurationFromMinutes(value) {
   const payload = {
     date,
     type: activityType,
-    distance: String(parsedDistance),
-    duration: String(parsedDuration),
+    distance: parsedDistance,
+    duration: parsedDuration,
     notes: String(notes),
     mood,
     weather,
@@ -1861,24 +1976,44 @@ function formatDurationFromMinutes(value) {
   return;
 }
 
-    const { error } = await supabase.from("runs").insert([
-      {
-        date,
-        type: activityType,
-        distance: parsedDistance,
-        duration: parsedDuration,
-        notes,
-        mood,
-        weather,
-        pre_session_state: preSessionState || null,
-        sleep_quality: sleepQuality || null,
-        during_session_fuel: duringSessionFuel.join(","),
-        user_id: session.user.id,
-      },
-    ]);
+    let saveResponse;
 
-    if (error) {
-      setError(formatSupabaseError(error.message, language));
+    try {
+      saveResponse = await fetch(
+        "https://pmfwfbgdpfvdjdrcpqqm.supabase.co/functions/v1/save-activity",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            date,
+            activity_type: activityType,
+            distance: parsedDistance,
+            duration_hours: String(durationHours || "0"),
+            duration_minutes: String(durationMinutes || "0"),
+            duration_seconds: String(durationSeconds || "0"),
+            duration_minutes_total: parsedDuration,
+            notes: String(notes),
+            mood,
+            weather,
+            pre_session_state: preSessionState || null,
+            sleep_quality: sleepQuality || null,
+            during_session_fuel: duringSessionFuel.join(","),
+            user_id: session.user.id,
+          }),
+        }
+      );
+    } catch (err) {
+      setError(language === "lv" ? "Neizdevās saglabāt aktivitāti." : "Could not save activity.");
+      setSaving(false);
+      return;
+    }
+
+    const saveResult = await saveResponse.json().catch(() => null);
+
+    if (!saveResponse.ok || saveResult?.error) {
+      setError(saveResult?.error || (language === "lv" ? "Neizdevās saglabāt aktivitāti." : "Could not save activity."));
       setSaving(false);
       return;
     }
@@ -3052,6 +3187,63 @@ function renderInsightsPanel() {
               </div>
 
               <form onSubmit={handleSubmit} style={styles.form}>
+                {!editingRunId && (
+                  <div style={styles.screenshotImportBox}>
+                    <div style={styles.sessionSectionTitleRow}>
+                      <label style={styles.label}>{text.importScreenshot}</label>
+                      {screenshotFile && (
+                        <span style={styles.optionalPill}>{screenshotFile.name}</span>
+                      )}
+                    </div>
+                    <p style={styles.importHelpText}>{text.importScreenshotHelp}</p>
+
+                    <label style={styles.fileUploadButton}>
+                      {text.chooseScreenshot}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleScreenshotChange}
+                        style={styles.hiddenFileInput}
+                      />
+                    </label>
+
+                    {screenshotPreview && (
+                      <div style={styles.screenshotPreviewWrap}>
+                        <img
+                          src={screenshotPreview}
+                          alt={text.screenshotPreview}
+                          style={styles.screenshotPreviewImage}
+                        />
+
+                        <div style={styles.screenshotActionRow}>
+                          <button
+                            type="button"
+                            onClick={handleImportScreenshotData}
+                            disabled={screenshotImportLoading}
+                            style={
+                              screenshotImportLoading
+                                ? styles.importScreenshotButtonDisabled
+                                : styles.importScreenshotButton
+                            }
+                          >
+                            {screenshotImportLoading
+                              ? text.importingScreenshot
+                              : text.importScreenshotButton}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleRemoveScreenshot}
+                            style={styles.removeScreenshotButton}
+                          >
+                            {text.removeScreenshot}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <label style={styles.label}>{text.activityType}</label>
                 <select
                   value={activityType}
@@ -4238,6 +4430,88 @@ statSubtext: {
     display: "block",
   },
 
+
+  screenshotImportBox: {
+    padding: "14px",
+    borderRadius: "18px",
+    border: "1px solid rgba(148, 163, 184, 0.28)",
+    background: "rgba(15, 23, 42, 0.44)",
+  },
+  importHelpText: {
+    margin: "4px 0 12px",
+    fontSize: "12px",
+    lineHeight: 1.5,
+    color: "rgba(226, 232, 240, 0.68)",
+  },
+  fileUploadButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "42px",
+    padding: "10px 14px",
+    borderRadius: "14px",
+    border: "1px solid rgba(251, 146, 60, 0.45)",
+    background: "rgba(251, 146, 60, 0.14)",
+    color: "#fed7aa",
+    fontSize: "13px",
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+  hiddenFileInput: {
+    display: "none",
+  },
+  screenshotPreviewWrap: {
+    marginTop: "12px",
+    display: "grid",
+    gap: "10px",
+  },
+  screenshotPreviewImage: {
+    width: "100%",
+    maxHeight: "360px",
+    objectFit: "contain",
+    borderRadius: "16px",
+    border: "1px solid rgba(148, 163, 184, 0.28)",
+    background: "rgba(2, 6, 23, 0.55)",
+  },
+  screenshotActionRow: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "10px",
+  },
+  importScreenshotButton: {
+    border: "0",
+    borderRadius: "999px",
+    padding: "10px 14px",
+    background: "linear-gradient(135deg, #fb923c, #f97316)",
+    color: "#111827",
+    fontSize: "12px",
+    fontWeight: 900,
+    cursor: "pointer",
+    boxShadow: "0 12px 24px rgba(249, 115, 22, 0.18)",
+  },
+  importScreenshotButtonDisabled: {
+    border: "0",
+    borderRadius: "999px",
+    padding: "10px 14px",
+    background: "rgba(148, 163, 184, 0.22)",
+    color: "rgba(226, 232, 240, 0.72)",
+    fontSize: "12px",
+    fontWeight: 900,
+    cursor: "not-allowed",
+  },
+  removeScreenshotButton: {
+    width: "fit-content",
+    border: "0",
+    borderRadius: "999px",
+    padding: "9px 12px",
+    background: "rgba(148, 163, 184, 0.16)",
+    color: "rgba(226, 232, 240, 0.9)",
+    fontSize: "12px",
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+
   emptyChartText: {
     color: "rgba(255, 255, 255, 0.62)",
     fontSize: "14px",
@@ -4815,6 +5089,7 @@ statSubtext: {
     display: "flex",
     gap: "10px",
     flexWrap: "wrap",
+    marginTop: "12px",
     marginBottom: "12px",
   },
   editButton: {
