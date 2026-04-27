@@ -521,6 +521,7 @@ export default function App() {
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [expandedRunId, setExpandedRunId] = useState(null);
   const [showInsights, setShowInsights] = useState(false);
+  const [insightActivityType, setInsightActivityType] = useState("all");
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
@@ -692,6 +693,8 @@ export default function App() {
         hideInsights: "Paslēpt insights",
         insightsTitle: "Insight engine",
         insightsSubtitle: "Īss pārskats no taviem aktivitāšu datiem.",
+        insightSportFilter: "Sporta veids",
+        insightAllSports: "Skrējieni + pārgājieni",
         insightsNotEnough: "Pievieno vismaz 2 aktivitātes ar distanci, lai redzētu jēgpilnus insights.",
         insightsBasedOn: "Balstīts uz",
         insightsActivities: "aktivitātēm",
@@ -701,6 +704,10 @@ export default function App() {
         insightsTrend: "Temps",
         insightsBestContext: "Labākais konteksts",
         insightsNoContext: "Vēl nav pietiekami daudz miega, ēšanas vai fuel datu.",
+        insightsGymAvgDuration: "Vidējais ilgums",
+        insightsGymTotalDuration: "Kopējais ilgums",
+        insightsGymLatestDuration: "Pēdējais ilgums",
+        insightsGymTrend: "Ilgums",
         chartTitle: "Tempa trends",
         chartSubtitle: "Pēdējās 12 aktivitātes ar distanci.",
         notEnoughChartData: "Vajag vismaz 2 aktivitātes ar distanci, lai parādītu grafiku.",
@@ -842,6 +849,8 @@ export default function App() {
         hideInsights: "Hide insights",
         insightsTitle: "Insight engine",
         insightsSubtitle: "A short readout from your activity data.",
+        insightSportFilter: "Sport",
+        insightAllSports: "Runs + hikes",
         insightsNotEnough: "Add at least 2 distance-based activities to see useful insights.",
         insightsBasedOn: "Based on",
         insightsActivities: "activities",
@@ -851,6 +860,10 @@ export default function App() {
         insightsTrend: "Pace",
         insightsBestContext: "Best context",
         insightsNoContext: "Not enough sleep, pre-session, or fuel data yet.",
+        insightsGymAvgDuration: "Average duration",
+        insightsGymTotalDuration: "Total duration",
+        insightsGymLatestDuration: "Latest duration",
+        insightsGymTrend: "Duration",
         chartTitle: "Pace trend",
         chartSubtitle: "Last 12 distance-based activities.",
         notEnoughChartData: "Add at least 2 distance-based activities to show the chart.",
@@ -1029,8 +1042,107 @@ const chartData = useMemo(() => {
 }, [runs, language]);
 
 const insightData = useMemo(() => {
-  const distanceActivities = runs
-    .filter((activity) => (activity.type || "run") !== "gym")
+  const selectedType = insightActivityType;
+
+  const sourceActivities = runs.filter((activity) => {
+    const type = activity.type || "run";
+
+    if (selectedType === "all") {
+      return type === "run" || type === "hike";
+    }
+
+    return type === selectedType;
+  });
+
+  const isGymView = selectedType === "gym";
+
+  if (isGymView) {
+    const gymActivities = sourceActivities
+      .map((activity) => {
+        const durationValue = parseFloat(String(activity.duration).replace(",", "."));
+
+        if (!durationValue || durationValue <= 0) {
+          return null;
+        }
+
+        return { ...activity, durationValue };
+      })
+      .filter(Boolean)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const count = gymActivities.length;
+    if (count < 2) return { count, cards: [], contextLines: [], isGymView };
+
+    const totalDuration = gymActivities.reduce((sum, item) => sum + item.durationValue, 0);
+    const avgDuration = totalDuration / count;
+    const latest = gymActivities[count - 1];
+    const previous = gymActivities.slice(0, -1);
+    const previousAvgDuration = previous.reduce((sum, item) => sum + item.durationValue, 0) / previous.length;
+    const trendDiff = latest.durationValue - previousAvgDuration;
+
+    const trendText = Math.abs(trendDiff) < 1
+      ? language === "lv"
+        ? "Pēdējais zāles treniņš bija ļoti tuvu tavam vidējam ilgumam."
+        : "Your latest gym session was very close to your average duration."
+      : trendDiff > 0
+        ? language === "lv"
+          ? `Pēdējais zāles treniņš bija par ${Math.round(trendDiff)} min garāks nekā iepriekšējais vidējais.`
+          : `Your latest gym session was ${Math.round(trendDiff)} min longer than your previous average.`
+        : language === "lv"
+          ? `Pēdējais zāles treniņš bija par ${Math.round(Math.abs(trendDiff))} min īsāks nekā iepriekšējais vidējais.`
+          : `Your latest gym session was ${Math.round(Math.abs(trendDiff))} min shorter than your previous average.`;
+
+    const consistencyText = language === "lv"
+      ? `Tev ir ${count} zāles treniņi. Vidēji viens treniņš ilgst ${Math.round(avgDuration)} min.`
+      : `You have ${count} gym sessions. Average session duration is ${Math.round(avgDuration)} min.`;
+
+    function bestCountByField(fieldName, options, minItems = 2) {
+      const groups = new Map();
+
+      gymActivities.forEach((item) => {
+        const rawValue = item[fieldName];
+        const values = Array.isArray(rawValue)
+          ? rawValue
+          : String(rawValue || "")
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean);
+
+        values.forEach((value) => {
+          if (!groups.has(value)) groups.set(value, []);
+          groups.get(value).push(item);
+        });
+      });
+
+      return Array.from(groups.entries())
+        .map(([value, items]) => ({ value, label: getOptionLabel(options, value), count: items.length }))
+        .filter((item) => item.count >= minItems && item.label)
+        .sort((a, b) => b.count - a.count)[0] || null;
+    }
+
+    const commonSleep = bestCountByField("sleep_quality", sleepOptions);
+    const commonPreSession = bestCountByField("pre_session_state", preSessionOptions);
+    const commonFuel = bestCountByField("during_session_fuel", duringSessionOptions);
+
+    const contextLines = [
+      commonPreSession ? `${text.preSessionState}: ${commonPreSession.label} (${commonPreSession.count}x)` : "",
+      commonSleep ? `${text.sleep}: ${commonSleep.label} (${commonSleep.count}x)` : "",
+      commonFuel ? `${text.duringSession}: ${commonFuel.label} (${commonFuel.count}x)` : "",
+    ].filter(Boolean);
+
+    return {
+      count,
+      isGymView,
+      cards: [
+        { title: text.insightsGymAvgDuration, value: `${Math.round(avgDuration)} min`, detail: `${text.insightsGymTotalDuration}: ${formatDurationFromMinutes(totalDuration)}` },
+        { title: text.insightsGymTrend, value: formatDurationFromMinutes(latest.durationValue), detail: trendText },
+        { title: text.insightsGymLatestDuration, value: formatDurationFromMinutes(latest.durationValue), detail: consistencyText },
+      ],
+      contextLines,
+    };
+  }
+
+  const distanceActivities = sourceActivities
     .map((activity) => {
       const distanceValue = parseFloat(String(activity.distance).replace(",", "."));
       const durationValue = parseFloat(String(activity.duration).replace(",", "."));
@@ -1045,7 +1157,7 @@ const insightData = useMemo(() => {
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const count = distanceActivities.length;
-  if (count < 2) return { count, cards: [], contextLines: [] };
+  if (count < 2) return { count, cards: [], contextLines: [], isGymView };
 
   const totalDistance = distanceActivities.reduce((sum, item) => sum + item.distanceValue, 0);
   const totalDuration = distanceActivities.reduce((sum, item) => sum + item.durationValue, 0);
@@ -1118,6 +1230,7 @@ const insightData = useMemo(() => {
 
   return {
     count,
+    isGymView,
     cards: [
       { title: text.insightsAvgPace, value: `${formatPaceNumber(avgPace)} / km`, detail: `${text.insightsTotalDistance}: ${formatKm(totalDistance)}` },
       { title: text.insightsTrend, value: formatPaceNumber(latest.paceValue) + " / km", detail: trendText },
@@ -1125,8 +1238,7 @@ const insightData = useMemo(() => {
     ],
     contextLines,
   };
-}, [runs, language, preSessionOptions, sleepOptions, duringSessionOptions, text]);
-
+}, [runs, language, preSessionOptions, sleepOptions, duringSessionOptions, text, insightActivityType]);
 
 const monthlyIdentity = useMemo(() => {
   const now = new Date();
@@ -2230,12 +2342,49 @@ function renderMonthlyIdentityCard() {
 }
 
 function renderInsightsPanel() {
+  const selectedInsightLabel = insightActivityType === "all"
+    ? text.insightAllSports
+    : insightActivityType === "run"
+      ? text.runType
+      : insightActivityType === "hike"
+        ? text.hikeType
+        : text.gymType;
+
+  const insightFilterControl = (
+    <div style={styles.insightFilterRow}>
+      <label style={styles.insightFilterLabel} htmlFor="insight-activity-type">
+        {text.insightSportFilter}
+      </label>
+      <select
+        id="insight-activity-type"
+        value={insightActivityType}
+        onChange={(e) => setInsightActivityType(e.target.value)}
+        style={styles.insightSelect}
+      >
+        <option value="all">{text.insightAllSports}</option>
+        <option value="run">🏃 {text.runType}</option>
+        <option value="hike">🥾 {text.hikeType}</option>
+        <option value="gym">🏋️ {text.gymType}</option>
+      </select>
+    </div>
+  );
+
   if (insightData.count < 2) {
     return (
       <section className="runology-insights-panel" style={styles.insightsPanel}>
         <div style={styles.sectionHeaderCompact}>
           <h2 style={styles.insightsTitle}>{text.insightsTitle}</h2>
-          <p style={styles.insightsSubtitle}>{text.insightsNotEnough}</p>
+          <p style={styles.insightsSubtitle}>{text.insightsSubtitle}</p>
+        </div>
+
+        {insightFilterControl}
+
+        <div style={styles.emptyState}>
+          {insightActivityType === "gym"
+            ? language === "lv"
+              ? `Pievieno vismaz 2 zāles aktivitātes ar ilgumu, lai redzētu ${selectedInsightLabel} insights.`
+              : `Add at least 2 gym sessions with duration to see ${selectedInsightLabel} insights.`
+            : text.insightsNotEnough}
         </div>
       </section>
     );
@@ -2246,9 +2395,11 @@ function renderInsightsPanel() {
       <div style={styles.sectionHeaderCompact}>
         <h2 style={styles.insightsTitle}>{text.insightsTitle}</h2>
         <p style={styles.insightsSubtitle}>
-          {text.insightsBasedOn} {insightData.count} {text.insightsActivities}.
+          {text.insightsBasedOn} {insightData.count} {text.insightsActivities} · {selectedInsightLabel}.
         </p>
       </div>
+
+      {insightFilterControl}
 
       <div className="runology-insights-grid" style={styles.insightsGrid}>
         {insightData.cards.map((card) => (
@@ -3925,6 +4076,30 @@ statSubtext: {
     boxShadow: "0 12px 34px rgba(0, 0, 0, 0.18)",
   },
 
+  insightFilterRow: {
+    display: "grid",
+    gap: "8px",
+    marginBottom: "18px",
+  },
+  insightFilterLabel: {
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.62)",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+  },
+  insightSelect: {
+    width: "100%",
+    maxWidth: "320px",
+    boxSizing: "border-box",
+    padding: "13px 14px",
+    fontSize: "15px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    background: "rgba(36, 36, 36, 0.94)",
+    color: "#ffffff",
+    outline: "none",
+  },
   insightsPanel: {
     background: "rgba(26, 26, 26, 0.92)",
     borderRadius: "22px",
@@ -4447,13 +4622,20 @@ statSubtext: {
     wordBreak: "break-word",
   },
   emptyState: {
-    padding: "34px",
+     width: "100%",
+    minHeight: "120px",
+    padding: "18px",
     borderRadius: "18px",
     background: "rgba(36, 36, 36, 0.9)",
     border: "1px dashed #343434",
     color: "rgba(255, 255, 255, 0.64)",
     fontSize: "15px",
+    lineHeight: 1.45,
     textAlign: "center",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxSizing: "border-box",
   },
   activityFilterWrap: {
     display: "grid",
@@ -4580,8 +4762,8 @@ statSubtext: {
     alignItems: "center",
     justifyContent: "center",
     color: "#ffffff",
-    fontSize: "11px",
-    fontWeight: "400",
+    fontSize: "12px",
+    fontWeight: "800",
     lineHeight: 1.1,
     letterSpacing: "0.01em",
     boxShadow: "none",
@@ -4633,7 +4815,6 @@ statSubtext: {
     display: "flex",
     gap: "10px",
     flexWrap: "wrap",
-    marginTop: "12px",
     marginBottom: "12px",
   },
   editButton: {
