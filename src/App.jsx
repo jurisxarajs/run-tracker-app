@@ -267,6 +267,54 @@ function EmojiPicker({ options, value, onChange }) {
   );
 }
 
+function ChoicePicker({ options, value, onChange, multiple = false }) {
+  function isSelected(optionValue) {
+    return multiple ? value.includes(optionValue) : value === optionValue;
+  }
+
+  function handleClick(optionValue) {
+    if (!multiple) {
+      onChange(value === optionValue ? "" : optionValue);
+      return;
+    }
+
+    if (value.includes(optionValue)) {
+      onChange(value.filter((item) => item !== optionValue));
+      return;
+    }
+
+    if (optionValue === "no_fuel") {
+      onChange(["no_fuel"]);
+      return;
+    }
+
+    onChange([...value.filter((item) => item !== "no_fuel"), optionValue]);
+  }
+
+  return (
+    <div style={styles.choiceGrid}>
+      {options.map((option) => {
+        const selected = isSelected(option.value);
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => handleClick(option.value)}
+            style={selected ? styles.choiceButtonActive : styles.choiceButton}
+            title={option.label}
+            aria-label={option.label}
+          >
+            <span style={styles.choiceMainRow}>
+              <span style={styles.choiceEmoji}>{option.emoji}</span>
+              <span>{option.label}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [runs, setRuns] = useState([]);
@@ -278,6 +326,9 @@ export default function App() {
   const [notes, setNotes] = useState("");
   const [mood, setMood] = useState("🙂");
   const [weather, setWeather] = useState("☀️");
+  const [preSessionState, setPreSessionState] = useState("");
+  const [sleepQuality, setSleepQuality] = useState("");
+  const [duringSessionFuel, setDuringSessionFuel] = useState([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -388,6 +439,21 @@ export default function App() {
         pace: "Temps",
         mood: "Sajūta",
         weather: "Laikapstākļi",
+        preSessionState: "Pirms aktivitātes",
+        sleep: "Miegs",
+        duringSession: "Aktivitātes laikā",
+        optional: "Nav obligāts",
+        fasted: "Tukšā dūšā",
+        lightMeal: "Viegla maltīte",
+        carbedUp: "Ar ogļhidrātiem",
+        heavyMeal: "Smaga maltīte",
+        sleepGood: "Labs",
+        sleepOk: "Vidējs",
+        sleepBad: "Slikts",
+        water: "Ūdens",
+        electrolytes: "Elektrolīti",
+        gelSnacks: "Gels / Uzkodas",
+        noFuel: "Bez uzņemšanas",
         notes: "Piezīmes",
         notesPlaceholder: "Tīras piezīmes par aktivitāti.",
         saveRun: "Saglabāt aktivitāti",
@@ -496,6 +562,21 @@ export default function App() {
         pace: "Pace",
         mood: "Feeling",
         weather: "Weather",
+        preSessionState: "Pre session state",
+        sleep: "Sleep",
+        duringSession: "During session",
+        optional: "Optional",
+        fasted: "Fasted",
+        lightMeal: "Light meal",
+        carbedUp: "Carbed up",
+        heavyMeal: "Heavy meal",
+        sleepGood: "Good",
+        sleepOk: "OK",
+        sleepBad: "Bad",
+        water: "Water",
+        electrolytes: "Electrolytes",
+        gelSnacks: "Gel / Snacks",
+        noFuel: "No fuel",
         notes: "Notes",
         notesPlaceholder: "Only notes about the activity.",
         saveRun: "Save activity",
@@ -569,6 +650,35 @@ export default function App() {
       { value: "💨", emoji: "💨", label: language === "lv" ? "Vējains" : "Windy" },
     ],
     [language]
+  );
+
+  const preSessionOptions = useMemo(
+    () => [
+      { value: "fasted", emoji: "💧", label: text.fasted },
+      { value: "light_meal", emoji: "🥣", label: text.lightMeal },
+      { value: "carbed_up", emoji: "🍝", label: text.carbedUp },
+      { value: "heavy_meal", emoji: "🥩", label: text.heavyMeal },
+    ],
+    [language, text]
+  );
+
+  const sleepOptions = useMemo(
+    () => [
+      { value: "good", emoji: "😊", label: text.sleepGood },
+      { value: "ok", emoji: "😐", label: text.sleepOk },
+      { value: "bad", emoji: "🙁", label: text.sleepBad },
+    ],
+    [language, text]
+  );
+
+  const duringSessionOptions = useMemo(
+    () => [
+      { value: "water", emoji: "💧", label: text.water },
+      { value: "electrolytes", emoji: "⚡", label: text.electrolytes },
+      { value: "gel_snacks", emoji: "🍬", label: text.gelSnacks },
+      { value: "no_fuel", emoji: "🚫", label: text.noFuel },
+    ],
+    [language, text]
   );
 
 const stats = useMemo(() => {
@@ -940,6 +1050,9 @@ async function handleSaveProfile(e) {
     setNotes("");
     setMood("🙂");
     setWeather("☀️");
+    setPreSessionState("");
+    setSleepQuality("");
+    setDuringSessionFuel([]);
     setEditingRunId(null);
   }
 
@@ -969,6 +1082,16 @@ async function handleSaveProfile(e) {
     setNotes(run.notes || "");
     setMood(run.mood || "🙂");
     setWeather(run.weather || "☀️");
+    setPreSessionState(run.pre_session_state || "");
+    setSleepQuality(run.sleep_quality || "");
+    setDuringSessionFuel(
+      Array.isArray(run.during_session_fuel)
+        ? run.during_session_fuel
+        : String(run.during_session_fuel || "")
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean)
+    );
     setMessage("");
     setError("");
 
@@ -1058,6 +1181,9 @@ function formatDurationFromMinutes(value) {
     notes: String(notes),
     mood,
     weather,
+    pre_session_state: preSessionState || null,
+    sleep_quality: sleepQuality || null,
+    during_session_fuel: duringSessionFuel.join(","),
   };
 
   const { data, error } = await supabase
@@ -1092,6 +1218,9 @@ function formatDurationFromMinutes(value) {
         notes,
         mood,
         weather,
+        pre_session_state: preSessionState || null,
+        sleep_quality: sleepQuality || null,
+        during_session_fuel: duringSessionFuel.join(","),
         user_id: session.user.id,
       },
     ]);
@@ -1182,6 +1311,24 @@ function getActivityTypeLabel(typeValue) {
   return text.runType;
 }
 
+function getOptionLabel(options, value) {
+  return options.find((option) => option.value === value)?.label || "";
+}
+
+function getDuringSessionLabels(value) {
+  const values = Array.isArray(value)
+    ? value
+    : String(value || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+  return values
+    .map((item) => getOptionLabel(duringSessionOptions, item))
+    .filter(Boolean)
+    .join("; ");
+}
+
 function csvEscape(value) {
   if (value === null || value === undefined) return '""';
 
@@ -1204,6 +1351,9 @@ function handleExportCsv() {
     "pace",
     "mood",
     "weather",
+    "pre_session_state",
+    "sleep",
+    "during_session",
     "notes",
   ];
 
@@ -1220,6 +1370,9 @@ function handleExportCsv() {
       paceValue,
       run.mood || "",
       run.weather || "",
+      getOptionLabel(preSessionOptions, run.pre_session_state),
+      getOptionLabel(sleepOptions, run.sleep_quality),
+      getDuringSessionLabels(run.during_session_fuel),
       run.notes || "",
     ];
   });
@@ -1829,6 +1982,43 @@ function getDistanceUnitLabel() {
                   onChange={setWeather}
                 />
 
+                <div style={styles.sessionSection}>
+                  <div style={styles.sessionSectionTitleRow}>
+                    <label style={styles.label}>{text.preSessionState}</label>
+                    <span style={styles.optionalPill}>{text.optional}</span>
+                  </div>
+                  <ChoicePicker
+                    options={preSessionOptions}
+                    value={preSessionState}
+                    onChange={setPreSessionState}
+                  />
+                </div>
+
+                <div style={styles.sessionSection}>
+                  <div style={styles.sessionSectionTitleRow}>
+                    <label style={styles.label}>{text.sleep}</label>
+                    <span style={styles.optionalPill}>{text.optional}</span>
+                  </div>
+                  <ChoicePicker
+                    options={sleepOptions}
+                    value={sleepQuality}
+                    onChange={setSleepQuality}
+                  />
+                </div>
+
+                <div style={styles.sessionSection}>
+                  <div style={styles.sessionSectionTitleRow}>
+                    <label style={styles.label}>{text.duringSession}</label>
+                    <span style={styles.optionalPill}>{text.optional}</span>
+                  </div>
+                  <ChoicePicker
+                    options={duringSessionOptions}
+                    value={duringSessionFuel}
+                    onChange={setDuringSessionFuel}
+                    multiple
+                  />
+                </div>
+
                 <label style={styles.label}>{text.notes}</label>
                 <textarea
                   className="runology-textarea"
@@ -1960,6 +2150,21 @@ function getDistanceUnitLabel() {
                         <div style={styles.metaChipRow}>
                           <div style={styles.metaChip}>{run.mood || "🙂"}</div>
                           <div style={styles.metaChip}>{run.weather || "☀️"}</div>
+                          {run.pre_session_state && (
+                            <div style={styles.sessionMetaChip}>
+                              {getOptionLabel(preSessionOptions, run.pre_session_state)}
+                            </div>
+                          )}
+                          {run.sleep_quality && (
+                            <div style={styles.sessionMetaChip}>
+                              {getOptionLabel(sleepOptions, run.sleep_quality)}
+                            </div>
+                          )}
+                          {run.during_session_fuel && (
+                            <div style={styles.sessionMetaChip}>
+                              {getDuringSessionLabels(run.during_session_fuel)}
+                            </div>
+                          )}
                         </div>
 
                         <div className="runology-run-info-row" style={styles.runInfoRow}>
@@ -2596,6 +2801,79 @@ statSubtext: {
     fontSize: "24px",
     lineHeight: 1,
   },
+  sessionSection: {
+    display: "grid",
+    gap: "10px",
+    paddingTop: "4px",
+  },
+  sessionSectionTitleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+  optionalPill: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "999px",
+    padding: "4px 8px",
+    background: "#2a2a2a",
+    border: "1px solid #343434",
+    color: "#b8aa95",
+    fontSize: "11px",
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+  },
+  choiceGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(132px, 1fr))",
+    gap: "10px",
+  },
+  choiceButton: {
+    border: "1px solid #3d3a35",
+    borderRadius: "14px",
+    padding: "12px 12px",
+    minHeight: "72px",
+    cursor: "pointer",
+    color: "#f6efe5",
+    background: "#242424",
+    fontFamily: "inherit",
+    textAlign: "left",
+    display: "grid",
+    gap: "7px",
+  },
+  choiceButtonActive: {
+    border: "1px solid #536557",
+    borderRadius: "14px",
+    padding: "12px 12px",
+    minHeight: "72px",
+    cursor: "pointer",
+    color: "#f6efe5",
+    background: "#2a322c",
+    fontFamily: "inherit",
+    textAlign: "left",
+    display: "grid",
+    gap: "7px",
+  },
+  choiceMainRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    fontSize: "14px",
+    fontWeight: "800",
+    lineHeight: 1.2,
+  },
+  choiceEmoji: {
+    fontSize: "20px",
+    lineHeight: 1,
+  },
+  choiceSubLabel: {
+    color: "#b8aa95",
+    fontSize: "12px",
+    fontWeight: "600",
+  },
   primaryButton: {
     width: "100%",
     border: "1px solid #5a534a",
@@ -2813,6 +3091,8 @@ statSubtext: {
   },
   metaChipRow: {
     display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
     gap: "8px",
     marginBottom: "14px",
   },
@@ -2826,6 +3106,22 @@ statSubtext: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "20px",
+    boxShadow: "none",
+  },
+  sessionMetaChip: {
+    minHeight: "30px",
+    padding: "7px 10px",
+    borderRadius: "999px",
+    background: "#2e2e2e",
+    border: "1px solid #3a3a3a",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#ffffff",
+    fontSize: "12px",
+    fontWeight: "800",
+    lineHeight: 1.1,
+    letterSpacing: "0.01em",
     boxShadow: "none",
   },
   runInfoRow: {
