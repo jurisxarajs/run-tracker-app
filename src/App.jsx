@@ -128,8 +128,33 @@ const responsiveCss = `
       grid-template-columns: 1fr !important;
     }
 
+    .runology-run-card {
+      padding: 14px !important;
+    }
+
+    .runology-run-date {
+      font-size: 15px !important;
+    }
+
     .runology-run-info-row {
-      grid-template-columns: 1fr !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      gap: 7px !important;
+    }
+
+    .runology-run-info-row > div {
+      padding: 10px 8px !important;
+      border-radius: 13px !important;
+      min-width: 0 !important;
+    }
+
+    .runology-run-info-row span:first-child {
+      font-size: 9px !important;
+      letter-spacing: 0.2px !important;
+    }
+
+    .runology-run-info-row span:last-child {
+      font-size: 13px !important;
+      white-space: nowrap !important;
     }
 
     .runology-auth-topbar-desktop {
@@ -480,6 +505,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState("choose");
   const [activeView, setActiveView] = useState("runs");
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  const [expandedRunId, setExpandedRunId] = useState(null);
   const [showInsights, setShowInsights] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -3090,12 +3116,22 @@ function renderInsightsPanel() {
                 <div style={styles.runList}>
                   {filteredRuns.map((run) => {
                     const runType = run.type || "run";
+                    const isExpanded = expandedRunId === run.id;
 
                     return (
                       <div
                         className="runology-run-card"
                         key={run.id}
                         style={styles.runCard}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setExpandedRunId(isExpanded ? null : run.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setExpandedRunId(isExpanded ? null : run.id);
+                          }
+                        }}
                       >
                         <div style={styles.runTopRow}>
                           <div className="runology-run-date" style={styles.runDate}>
@@ -3155,31 +3191,58 @@ function renderInsightsPanel() {
                           )}
                         </div>
 
-                        <div
-                          className="runology-run-action-row"
-                          style={styles.runActionRow}
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setExpandedRunId(isExpanded ? null : run.id);
+                          }}
+                          style={styles.detailsToggleButton}
                         >
-                          <button
-                            type="button"
-                            onClick={() => handleStartEdit(run)}
-                            style={styles.editButton}
-                          >
-                            {text.editRun}
-                          </button>
+                          {isExpanded
+                            ? language === "lv"
+                              ? "Paslēpt detaļas"
+                              : "Hide details"
+                            : language === "lv"
+                              ? "Atvērt detaļas"
+                              : "Open details"}
+                        </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(run.id)}
-                            style={styles.deleteButton}
-                          >
-                            {text.deleteRun}
-                          </button>
-                        </div>
+                        {isExpanded && (
+                          <div style={styles.runExpandedArea}>
+                            <div style={styles.notesBox}>
+                              <span style={styles.infoLabel}>{text.notesLabel}</span>
+                              <p style={styles.notesText}>{run.notes || text.noNotes}</p>
+                            </div>
 
-                        <div style={styles.notesBox}>
-                          <span style={styles.infoLabel}>{text.notesLabel}</span>
-                          <p style={styles.notesText}>{run.notes || text.noNotes}</p>
-                        </div>
+                            <div
+                              className="runology-run-action-row"
+                              style={styles.runActionRow}
+                            >
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleStartEdit(run);
+                                }}
+                                style={styles.editButton}
+                              >
+                                {text.editRun}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleDelete(run.id);
+                                }}
+                                style={styles.deleteButton}
+                              >
+                                {text.deleteRun}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -3538,7 +3601,7 @@ const styles = {
 viewSwitchButton: {
   border: "none",
   background: "transparent",
-  color: "rgba(255, 255, 255, 0.62)",
+  color: "#ffffff",
   borderRadius: "10px",
   padding: "10px 14px",
   fontSize: "14px",
@@ -4399,6 +4462,7 @@ statSubtext: {
   runCard: {
     borderRadius: "22px",
     padding: "22px",
+    cursor: "pointer",
     background: "linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.032) 100%)",
     border: "1px solid rgba(255, 255, 255, 0.07)",
     boxShadow: "0 12px 34px rgba(0, 0, 0, 0.22)",
@@ -4489,10 +4553,26 @@ statSubtext: {
     color: "#f8fafc",
     letterSpacing: "-0.02em",
   },
+  detailsToggleButton: {
+    width: "100%",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    borderRadius: "14px",
+    padding: "10px 12px",
+    marginTop: "2px",
+    fontSize: "13px",
+    fontWeight: "800",
+    cursor: "pointer",
+    color: "#ffffff",
+    background: "rgba(46, 46, 46, 0.72)",
+  },
+  runExpandedArea: {
+    marginTop: "12px",
+  },
   runActionRow: {
     display: "flex",
     gap: "10px",
     flexWrap: "wrap",
+    marginTop: "12px",
     marginBottom: "12px",
   },
   editButton: {
@@ -4560,4 +4640,5 @@ statSubtext: {
     cursor: "pointer",
     boxShadow: "none",
   },
+
 };
