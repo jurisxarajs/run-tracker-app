@@ -161,6 +161,14 @@ const responsiveCss = `
       min-height: 44px !important;
     }
   }
+
+  button {
+    transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+  }
+
+  button:active {
+    transform: translateY(1px) scale(0.99);
+  }
 `;
 
 function formatSupabaseError(errorMessage, language) {
@@ -213,7 +221,7 @@ function LanguageSwitcher({ language, onChange, dark = false }) {
   const buttonBase = dark
     ? {
         ...styles.languageButton,
-        color: "#b8aa95",
+        color: "rgba(255, 255, 255, 0.62)",
       }
     : styles.languageButton;
 
@@ -346,6 +354,8 @@ export default function App() {
   const [editingRunId, setEditingRunId] = useState(null);
   const [authMode, setAuthMode] = useState("choose");
   const [activeView, setActiveView] = useState("runs");
+  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
@@ -355,6 +365,7 @@ export default function App() {
   const [watch, setWatch] = useState("");
   const [profilePassword, setProfilePassword] = useState("");
   const [profilePasswordConfirm, setProfilePasswordConfirm] = useState("");
+  const [showProfilePasswords, setShowProfilePasswords] = useState(false);
   const [language, setLanguage] = useState(() => {
     if (typeof window === "undefined") return "lv";
     const saved = window.localStorage.getItem("runology-language");
@@ -426,6 +437,8 @@ export default function App() {
         loggedInAs: "Ielogojies kā",
         logout: "Iziet",
         addRunTitle: "Pievienot aktivitāti",
+        addActivityButton: "+ Pievienot aktivitāti",
+        closeActivityModal: "Aizvērt",
         editRunTitle: "Labot aktivitāti",
         addRunText: "Saglabā savu nākamo aktivitāti.",
         editRunText: "Maini izvēlētā ieraksta datus un saglabā izmaiņas.",
@@ -505,6 +518,28 @@ export default function App() {
         profileSaved: "Profils saglabāts.",
         kilometers: "Kilometri (km)",
         miles: "Jūdzes (mi)",
+        insightsButton: "Insights",
+        monthlyIdentityTab: "Mēneša identitāte",
+        shareImage: "Share as image",
+        imageSaved: "Attēls ir sagatavots kopīgošanai.",
+        imageDownloaded: "Attēls lejupielādēts.",
+        hideInsights: "Paslēpt insights",
+        insightsTitle: "Insight engine",
+        insightsSubtitle: "Īss pārskats no taviem aktivitāšu datiem.",
+        insightsNotEnough: "Pievieno vismaz 2 aktivitātes ar distanci, lai redzētu jēgpilnus insights.",
+        insightsBasedOn: "Balstīts uz",
+        insightsActivities: "aktivitātēm",
+        insightsAvgPace: "Vidējais temps",
+        insightsTotalDistance: "Kopējā distance",
+        insightsAvgDistance: "Vidējā distance",
+        insightsTrend: "Temps",
+        insightsBestContext: "Labākais konteksts",
+        insightsNoContext: "Vēl nav pietiekami daudz miega, ēšanas vai fuel datu.",
+        chartTitle: "Tempa trends",
+        chartSubtitle: "Pēdējās 12 aktivitātes ar distanci.",
+        notEnoughChartData: "Vajag vismaz 2 aktivitātes ar distanci, lai parādītu grafiku.",
+        latestPace: "Pēdējais temps",
+        chartEntries: "ieraksti",
       },
       en: {
         brand: "RUNOLOGY",
@@ -551,6 +586,8 @@ export default function App() {
         loggedInAs: "Logged in as",
         logout: "Log out",
         addRunTitle: "Add activity",
+        addActivityButton: "+ Add activity",
+        closeActivityModal: "Close",
         editRunTitle: "Edit activity",
         addRunText: "Save your next activity.",
         editRunText: "Update the selected entry and save your changes.",
@@ -630,6 +667,28 @@ export default function App() {
         profileSaved: "Profile saved.",
         kilometers: "Kilometers (km)",
         miles: "Miles (mi)",
+        insightsButton: "Insights",
+        monthlyIdentityTab: "Monthly Identity",
+        shareImage: "Share as image",
+        imageSaved: "Image is ready to share.",
+        imageDownloaded: "Image downloaded.",
+        hideInsights: "Hide insights",
+        insightsTitle: "Insight engine",
+        insightsSubtitle: "A short readout from your activity data.",
+        insightsNotEnough: "Add at least 2 distance-based activities to see useful insights.",
+        insightsBasedOn: "Based on",
+        insightsActivities: "activities",
+        insightsAvgPace: "Average pace",
+        insightsTotalDistance: "Total distance",
+        insightsAvgDistance: "Average distance",
+        insightsTrend: "Pace",
+        insightsBestContext: "Best context",
+        insightsNoContext: "Not enough sleep, pre-session, or fuel data yet.",
+        chartTitle: "Pace trend",
+        chartSubtitle: "Last 12 distance-based activities.",
+        notEnoughChartData: "Add at least 2 distance-based activities to show the chart.",
+        latestPace: "Latest pace",
+        chartEntries: "entries",
       },
     };
 
@@ -775,6 +834,292 @@ const filteredRuns = useMemo(() => {
 
   return runs.filter((run) => (run.type || "run") === activityFilter);
 }, [runs, activityFilter]);
+
+const chartData = useMemo(() => {
+  return runs
+    .filter((activity) => (activity.type || "run") !== "gym")
+    .map((activity) => {
+      const distanceValue = parseFloat(String(activity.distance).replace(",", "."));
+      const durationValue = parseFloat(String(activity.duration).replace(",", "."));
+
+      if (!distanceValue || !durationValue || distanceValue <= 0 || durationValue <= 0) {
+        return null;
+      }
+
+      return {
+        id: activity.id,
+        date: activity.date,
+        label: formatDate(activity.date),
+        distance: distanceValue,
+        duration: durationValue,
+        pace: durationValue / distanceValue,
+        type: activity.type || "run",
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .slice(-12);
+}, [runs, language]);
+
+const insightData = useMemo(() => {
+  const distanceActivities = runs
+    .filter((activity) => (activity.type || "run") !== "gym")
+    .map((activity) => {
+      const distanceValue = parseFloat(String(activity.distance).replace(",", "."));
+      const durationValue = parseFloat(String(activity.duration).replace(",", "."));
+
+      if (!distanceValue || !durationValue || distanceValue <= 0 || durationValue <= 0) {
+        return null;
+      }
+
+      return { ...activity, distanceValue, durationValue, paceValue: durationValue / distanceValue };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const count = distanceActivities.length;
+  if (count < 2) return { count, cards: [], contextLines: [] };
+
+  const totalDistance = distanceActivities.reduce((sum, item) => sum + item.distanceValue, 0);
+  const totalDuration = distanceActivities.reduce((sum, item) => sum + item.durationValue, 0);
+  const avgPace = totalDuration / totalDistance;
+  const avgDistance = totalDistance / count;
+  const latest = distanceActivities[count - 1];
+  const previous = distanceActivities.slice(0, -1);
+  const previousDistance = previous.reduce((sum, item) => sum + item.distanceValue, 0);
+  const previousDuration = previous.reduce((sum, item) => sum + item.durationValue, 0);
+  const previousAvgPace = previousDuration / previousDistance;
+  const trendDiff = latest.paceValue - previousAvgPace;
+
+  function formatKm(value) {
+    return `${value.toFixed(1)} km`;
+  }
+
+  function bestAverageByField(fieldName, options, minItems = 2) {
+    const groups = new Map();
+
+    distanceActivities.forEach((item) => {
+      const rawValue = item[fieldName];
+      const values = Array.isArray(rawValue)
+        ? rawValue
+        : String(rawValue || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+
+      values.forEach((value) => {
+        if (!groups.has(value)) groups.set(value, []);
+        groups.get(value).push(item);
+      });
+    });
+
+    return Array.from(groups.entries())
+      .map(([value, items]) => {
+        const distanceSum = items.reduce((sum, item) => sum + item.distanceValue, 0);
+        const durationSum = items.reduce((sum, item) => sum + item.durationValue, 0);
+        return { value, label: getOptionLabel(options, value), count: items.length, avgPace: durationSum / distanceSum };
+      })
+      .filter((item) => item.count >= minItems && item.label)
+      .sort((a, b) => a.avgPace - b.avgPace)[0] || null;
+  }
+
+  const bestSleep = bestAverageByField("sleep_quality", sleepOptions);
+  const bestPreSession = bestAverageByField("pre_session_state", preSessionOptions);
+  const bestFuel = bestAverageByField("during_session_fuel", duringSessionOptions);
+
+  const contextLines = [
+    bestPreSession ? `${text.preSessionState}: ${bestPreSession.label} (${formatPaceNumber(bestPreSession.avgPace)} / km)` : "",
+    bestSleep ? `${text.sleep}: ${bestSleep.label} (${formatPaceNumber(bestSleep.avgPace)} / km)` : "",
+    bestFuel ? `${text.duringSession}: ${bestFuel.label} (${formatPaceNumber(bestFuel.avgPace)} / km)` : "",
+  ].filter(Boolean);
+
+  const trendText = Math.abs(trendDiff) < 0.05
+    ? language === "lv"
+      ? "Pēdējā aktivitāte ir ļoti tuvu tavam vidējam tempam."
+      : "Your latest activity is very close to your average pace."
+    : trendDiff < 0
+      ? language === "lv"
+        ? `Pēdējā aktivitāte bija par ${formatPaceNumber(Math.abs(trendDiff))} / km ātrāka nekā iepriekšējais vidējais.`
+        : `Your latest activity was ${formatPaceNumber(Math.abs(trendDiff))} / km faster than your previous average.`
+      : language === "lv"
+        ? `Pēdējā aktivitāte bija par ${formatPaceNumber(trendDiff)} / km lēnāka nekā iepriekšējais vidējais.`
+        : `Your latest activity was ${formatPaceNumber(trendDiff)} / km slower than your previous average.`;
+
+  const consistencyText = language === "lv"
+    ? `Tev ir ${count} aktivitātes ar distanci. Vidēji viena aktivitāte ir ${formatKm(avgDistance)}.`
+    : `You have ${count} distance-based activities. Average distance is ${formatKm(avgDistance)}.`;
+
+  return {
+    count,
+    cards: [
+      { title: text.insightsAvgPace, value: `${formatPaceNumber(avgPace)} / km`, detail: `${text.insightsTotalDistance}: ${formatKm(totalDistance)}` },
+      { title: text.insightsTrend, value: formatPaceNumber(latest.paceValue) + " / km", detail: trendText },
+      { title: text.insightsAvgDistance, value: formatKm(avgDistance), detail: consistencyText },
+    ],
+    contextLines,
+  };
+}, [runs, language, preSessionOptions, sleepOptions, duringSessionOptions, text]);
+
+
+const monthlyIdentity = useMemo(() => {
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  const locale = language === "lv" ? "lv-LV" : "en-GB";
+  const monthName = now.toLocaleDateString(locale, { month: "long", year: "numeric" });
+
+  const monthlyRuns = runs
+    .filter((run) => {
+      if (!run.date) return false;
+      const date = new Date(run.date);
+      return !Number.isNaN(date.getTime()) && date.getMonth() === month && date.getFullYear() === year;
+    })
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const totalSessions = monthlyRuns.length;
+
+  function getRatio(count) {
+    if (!totalSessions) return 0;
+    return count / totalSessions;
+  }
+
+  function percent(value) {
+    return `${Math.round(value * 100)}%`;
+  }
+
+  function getMaxGapBetweenSessions(items) {
+    if (items.length < 2) return 0;
+
+    let maxGap = 0;
+    for (let index = 1; index < items.length; index += 1) {
+      const previous = new Date(items[index - 1].date);
+      const current = new Date(items[index].date);
+      const gap = Math.round((current - previous) / (1000 * 60 * 60 * 24));
+      if (gap > maxGap) maxGap = gap;
+    }
+    return maxGap;
+  }
+
+  const fastedCount = monthlyRuns.filter((run) => run.pre_session_state === "fasted").length;
+  const carbedCount = monthlyRuns.filter((run) => run.pre_session_state === "carbed_up").length;
+  const goodSleepCount = monthlyRuns.filter((run) => run.sleep_quality === "good").length;
+  const hardCount = monthlyRuns.filter((run) => run.mood === "😓" || run.mood === "🥵").length;
+  const strongCount = monthlyRuns.filter((run) => run.mood === "😄" || run.mood === "🙂").length;
+
+  const fastedRatio = getRatio(fastedCount);
+  const carbedRatio = getRatio(carbedCount);
+  const hardRatio = getRatio(hardCount);
+  const strongRatio = getRatio(strongCount);
+  const maxGap = getMaxGapBetweenSessions(monthlyRuns);
+
+  const copy = {
+    lv: {
+      title: "Monthly Identity",
+      basedOn: `Balstīts uz ${monthName} aktivitātēm`,
+      share: "Share",
+      copied: "Monthly Identity nokopēts.",
+      showingUp: {
+        line: "Šis mēnesis bija par parādīšanos.",
+        reason: "Katra aktivitāte skaitās — konsekvence sākas maziem soļiem.",
+      },
+      consistent: {
+        line: "Šomēnes tu trenējies kā Consistent Builder.",
+        reason: `Tu pabeidzi ${totalSessions} aktivitātes bez gariem pārtraukumiem.`,
+      },
+      fasted: {
+        line: "Šomēnes tu trenējies kā Fasted Machine.",
+        reason: `${percent(fastedRatio)} aktivitāšu bija tukšā dūšā.`,
+      },
+      fueled: {
+        line: "Šomēnes tu trenējies kā Fuel-Focused Athlete.",
+        reason: "Vairāk nekā puse aktivitāšu bija ar ogļhidrātu uzņemšanu pirms treniņa.",
+      },
+      resilient: {
+        line: "Šomēnes tu trenējies kā Resilient Trainer.",
+        reason: "Pat ar daudz grūtām aktivitātēm tu turpināji kustēties.",
+      },
+      strong: {
+        line: "Šomēnes tu trenējies kā Strong Finisher.",
+        reason: "Daudzas aktivitātes beidzās ar labu sajūtu.",
+      },
+      balanced: {
+        line: "Šomēnes tu trenējies kā Balanced Trainer.",
+        reason: "Tavi treniņi bija stabili dažādos apstākļos.",
+      },
+      extraFastedHard: "Tukšā dūšā veiktās aktivitātes biežāk tika atzīmētas kā grūtas.",
+      extraSleepStrong: "Laba miega dienās aktivitātes biežāk beidzās ar labu sajūtu.",
+    },
+    en: {
+      title: "Monthly Identity",
+      basedOn: `Based on ${monthName} sessions`,
+      share: "Share",
+      copied: "Monthly Identity copied.",
+      showingUp: {
+        line: "This month was about showing up.",
+        reason: "Every session counts — consistency starts small.",
+      },
+      consistent: {
+        line: "This month you trained like a Consistent Builder.",
+        reason: `You completed ${totalSessions} sessions with no long breaks.`,
+      },
+      fasted: {
+        line: "This month you trained like a Fasted Machine.",
+        reason: `${percent(fastedRatio)} of your sessions were fasted.`,
+      },
+      fueled: {
+        line: "This month you trained like a Fuel-Focused Athlete.",
+        reason: "More than half of your sessions were carbed up before training.",
+      },
+      resilient: {
+        line: "This month you trained like a Resilient Trainer.",
+        reason: "Even with many hard sessions, you kept showing up.",
+      },
+      strong: {
+        line: "This month you trained like a Strong Finisher.",
+        reason: "Many of your sessions ended feeling strong.",
+      },
+      balanced: {
+        line: "This month you trained like a Balanced Trainer.",
+        reason: "Your training stayed steady across different conditions.",
+      },
+      extraFastedHard: "Fasted sessions were more often marked as hard.",
+      extraSleepStrong: "Good sleep days more often ended with strong sessions.",
+    },
+  }[language];
+
+  let identity = copy.balanced;
+  if (totalSessions < 4) identity = copy.showingUp;
+  else if (totalSessions >= 12 && maxGap <= 4) identity = copy.consistent;
+  else if (hardRatio >= 0.5 && totalSessions >= 8) identity = copy.resilient;
+  else if (strongRatio >= 0.4 && totalSessions >= 6) identity = copy.strong;
+  else if (fastedRatio >= 0.5 && totalSessions >= 6) identity = copy.fasted;
+  else if (carbedRatio >= 0.5 && totalSessions >= 6) identity = copy.fueled;
+
+  let supportingInsight = "";
+  if (fastedCount >= 3 && hardCount >= 3) {
+    const fastedHardCount = monthlyRuns.filter((run) => run.pre_session_state === "fasted" && (run.mood === "😓" || run.mood === "🥵")).length;
+    if (fastedHardCount / fastedCount >= 0.5) supportingInsight = copy.extraFastedHard;
+  }
+
+  if (!supportingInsight && goodSleepCount >= 3 && strongCount >= 3) {
+    const goodSleepStrongCount = monthlyRuns.filter((run) => run.sleep_quality === "good" && (run.mood === "😄" || run.mood === "🙂")).length;
+    if (goodSleepStrongCount / goodSleepCount >= 0.5) supportingInsight = copy.extraSleepStrong;
+  }
+
+  const shareText = `Runology Monthly Identity\n\n${identity.line}\n${identity.reason}${supportingInsight ? `\n\n${supportingInsight}` : ""}`;
+
+  return {
+    ...identity,
+    title: copy.title,
+    basedOn: copy.basedOn,
+    shareLabel: copy.share,
+    copiedMessage: copy.copied,
+    supportingInsight,
+    totalSessions,
+    maxGap,
+    shareText,
+  };
+}, [runs, language]);
 
   useEffect(() => {
     const hash = typeof window !== "undefined" ? window.location.hash || "" : "";
@@ -1105,16 +1450,14 @@ async function handleSaveProfile(e) {
     );
     setMessage("");
     setError("");
-
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    setIsActivityModalOpen(true);
   }
 
   function handleCancelEdit() {
     resetForm();
     setMessage("");
     setError("");
+    setIsActivityModalOpen(false);
   }
 
 function durationPartsToMinutes(hoursValue, minutesValue, secondsValue) {
@@ -1232,6 +1575,7 @@ function formatDurationFromMinutes(value) {
 
   setMessage(text.updateSuccess);
   resetForm();
+  setIsActivityModalOpen(false);
   await fetchRuns();
   setSaving(false);
   return;
@@ -1260,6 +1604,7 @@ function formatDurationFromMinutes(value) {
     }
 
     resetForm();
+    setIsActivityModalOpen(false);
     setMessage(text.saveSuccess);
     await fetchRuns();
     setSaving(false);
@@ -1361,6 +1706,164 @@ function csvEscape(value) {
   return `"${normalized.replace(/"/g, '""')}"`;
 }
 
+async function handleShareMonthlyIdentity() {
+  const shareText = monthlyIdentity.shareText;
+
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: monthlyIdentity.title,
+        text: shareText,
+      });
+      return;
+    }
+
+    await navigator.clipboard.writeText(shareText);
+    setMessage(monthlyIdentity.copiedMessage);
+  } catch (shareError) {
+    if (shareError?.name !== "AbortError") {
+      setError(shareError.message || String(shareError));
+    }
+  }
+}
+
+async function handleShareMonthlyIdentityImage() {
+  try {
+    const canvas = document.createElement("canvas");
+    const width = 1080;
+    const height = 1350;
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const accent = "#22c55e";
+    const bg = ctx.createLinearGradient(0, 0, width, height);
+    bg.addColorStop(0, "#153b25");
+    bg.addColorStop(0.42, "#101010");
+    bg.addColorStop(1, "#050505");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = "rgba(34, 197, 94, 0.16)";
+    ctx.beginPath();
+    ctx.arc(160, 120, 280, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.055)";
+    roundRect(ctx, 80, 110, 920, 1130, 56);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.lineWidth = 2;
+    roundRect(ctx, 80, 110, 920, 1130, 56);
+    ctx.stroke();
+
+    ctx.fillStyle = accent;
+    ctx.font = "700 34px Arial, sans-serif";
+    ctx.fillText("RUNOLOGY", 140, 195);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.62)";
+    ctx.font = "500 30px Arial, sans-serif";
+    ctx.fillText(monthlyIdentity.basedOn, 140, 250);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 70px Arial, sans-serif";
+    wrapCanvasText(ctx, monthlyIdentity.line, 140, 390, 800, 84, 4);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
+    ctx.font = "500 38px Arial, sans-serif";
+    const reasonEndY = wrapCanvasText(ctx, monthlyIdentity.reason, 140, 735, 800, 52, 4);
+
+    if (monthlyIdentity.supportingInsight) {
+      ctx.fillStyle = "rgba(34, 197, 94, 0.16)";
+      roundRect(ctx, 140, reasonEndY + 48, 800, 150, 32);
+      ctx.fill();
+
+      ctx.fillStyle = "#d7ffe6";
+      ctx.font = "600 31px Arial, sans-serif";
+      wrapCanvasText(ctx, monthlyIdentity.supportingInsight, 180, reasonEndY + 105, 720, 42, 3);
+    }
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+    ctx.font = "500 28px Arial, sans-serif";
+    ctx.fillText(language === "lv" ? "Mēneša identitāte" : "Monthly Identity", 140, 1145);
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) return;
+
+    const file = new File([blob], "runology-monthly-identity.png", { type: "image/png" });
+
+    if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+      await navigator.share({
+        title: monthlyIdentity.title,
+        text: monthlyIdentity.shareText,
+        files: [file],
+      });
+      setMessage(text.imageSaved);
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "runology-monthly-identity.png";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setMessage(text.imageDownloaded);
+  } catch (shareError) {
+    if (shareError?.name !== "AbortError") {
+      setError(shareError.message || String(shareError));
+    }
+  }
+}
+
+function roundRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
+function wrapCanvasText(ctx, textValue, x, y, maxWidth, lineHeight, maxLines = 10) {
+  const words = String(textValue || "").split(" ");
+  let line = "";
+  let currentY = y;
+  let lines = 0;
+
+  for (let index = 0; index < words.length; index += 1) {
+    const testLine = line ? `${line} ${words[index]}` : words[index];
+    const metrics = ctx.measureText(testLine);
+
+    if (metrics.width > maxWidth && line) {
+      lines += 1;
+      if (lines >= maxLines) {
+        ctx.fillText(`${line.replace(/\.$/, "")}…`, x, currentY);
+        return currentY + lineHeight;
+      }
+      ctx.fillText(line, x, currentY);
+      line = words[index];
+      currentY += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+
+  if (line) {
+    ctx.fillText(line, x, currentY);
+    currentY += lineHeight;
+  }
+
+  return currentY;
+}
+
 function handleExportCsv() {
   if (filteredRuns.length === 0) {
     setError(text.exportNoRows);
@@ -1436,6 +1939,171 @@ function convertDistance(value) {
 
 function getDistanceUnitLabel() {
   return unit === "miles" ? "mi" : "km";
+}
+
+function formatPaceNumber(value) {
+  if (!Number.isFinite(value) || value <= 0) return "—";
+
+  const minutes = Math.floor(value);
+  let seconds = Math.round((value - minutes) * 60);
+  let safeMinutes = minutes;
+
+  if (seconds === 60) {
+    safeMinutes += 1;
+    seconds = 0;
+  }
+
+  return `${safeMinutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function renderPaceTrendChart() {
+  if (chartData.length < 2) {
+    return <div style={styles.emptyChartText}>{text.notEnoughChartData}</div>;
+  }
+
+  const width = 620;
+  const height = 220;
+  const padding = 28;
+  const values = chartData.map((item) => item.pace);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = maxValue - minValue || 1;
+
+  const points = chartData.map((item, index) => {
+    const x = padding + (index / Math.max(chartData.length - 1, 1)) * (width - padding * 2);
+    const y = height - padding - ((item.pace - minValue) / range) * (height - padding * 2);
+
+    return { ...item, x, y };
+  });
+
+  const polylinePoints = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const latest = chartData[chartData.length - 1];
+
+  return (
+    <div>
+      <div style={styles.chartSummaryRow}>
+        <div>
+          <div style={styles.chartBigValue}>{formatPaceNumber(latest.pace)} / km</div>
+          <div style={styles.chartMutedText}>{text.latestPace}</div>
+        </div>
+        <div style={styles.chartSmallBadge}>
+          {chartData.length} {text.chartEntries}
+        </div>
+      </div>
+
+      <svg viewBox={`0 0 ${width} ${height}`} style={styles.chartSvg} role="img">
+        <line
+          x1={padding}
+          y1={height - padding}
+          x2={width - padding}
+          y2={height - padding}
+          stroke="rgba(255,255,255,0.14)"
+          strokeWidth="1"
+        />
+        <line
+          x1={padding}
+          y1={padding}
+          x2={padding}
+          y2={height - padding}
+          stroke="rgba(255,255,255,0.10)"
+          strokeWidth="1"
+        />
+        <polyline
+          fill="none"
+          stroke="#d7e3d8"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={polylinePoints}
+        />
+        {points.map((point) => (
+          <circle
+            key={point.id}
+            cx={point.x}
+            cy={point.y}
+            r="5"
+            fill="#8ad08d"
+            stroke="#111111"
+            strokeWidth="2"
+          >
+            <title>{`${point.label}: ${formatPaceNumber(point.pace)} / km`}</title>
+          </circle>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function renderMonthlyIdentityCard() {
+  return (
+    <section style={styles.monthlyIdentityCard}>
+      <div style={styles.monthlyIdentityTopRow}>
+        <div>
+          <div style={styles.monthlyIdentityEyebrow}>🧭 {monthlyIdentity.title}</div>
+          <h2 style={styles.monthlyIdentityLine}>{monthlyIdentity.line}</h2>
+        </div>
+        <div style={styles.monthlyIdentityActions}>
+          <button type="button" onClick={handleShareMonthlyIdentity} style={styles.monthlyIdentityShareButton}>
+            {monthlyIdentity.shareLabel}
+          </button>
+          <button type="button" onClick={handleShareMonthlyIdentityImage} style={styles.monthlyIdentityShareImageButton}>
+            {text.shareImage}
+          </button>
+        </div>
+      </div>
+
+      <p style={styles.monthlyIdentityReason}>{monthlyIdentity.reason}</p>
+      {monthlyIdentity.supportingInsight && (
+        <p style={styles.monthlyIdentitySupport}>{monthlyIdentity.supportingInsight}</p>
+      )}
+      <div style={styles.monthlyIdentityBasedOn}>{monthlyIdentity.basedOn}</div>
+    </section>
+  );
+}
+
+function renderInsightsPanel() {
+  if (insightData.count < 2) {
+    return (
+      <section style={styles.insightsPanel}>
+        <div style={styles.sectionHeaderCompact}>
+          <h2 style={styles.insightsTitle}>{text.insightsTitle}</h2>
+          <p style={styles.insightsSubtitle}>{text.insightsNotEnough}</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section style={styles.insightsPanel}>
+      <div style={styles.sectionHeaderCompact}>
+        <h2 style={styles.insightsTitle}>{text.insightsTitle}</h2>
+        <p style={styles.insightsSubtitle}>
+          {text.insightsBasedOn} {insightData.count} {text.insightsActivities}.
+        </p>
+      </div>
+
+      <div style={styles.insightsGrid}>
+        {insightData.cards.map((card) => (
+          <div key={card.title} style={styles.insightCard}>
+            <div style={styles.insightCardTitle}>{card.title}</div>
+            <div style={styles.insightCardValue}>{card.value}</div>
+            <div style={styles.insightCardDetail}>{card.detail}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={styles.insightContextBox}>
+        <div style={styles.insightCardTitle}>{text.insightsBestContext}</div>
+        {insightData.contextLines.length > 0 ? (
+          insightData.contextLines.map((line) => (
+            <div key={line} style={styles.insightContextLine}>{line}</div>
+          ))
+        ) : (
+          <div style={styles.insightContextLine}>{text.insightsNoContext}</div>
+        )}
+      </div>
+    </section>
+  );
 }
 
   function toggleLanguage(nextLanguage) {
@@ -1857,7 +2525,10 @@ function getDistanceUnitLabel() {
             <div style={styles.viewSwitch}>
               <button
                 type="button"
-                onClick={() => setActiveView("runs")}
+                onClick={() => {
+                  setActiveView("runs");
+                  setShowInsights(false);
+                }}
                 style={
                   activeView === "runs"
                     ? styles.viewSwitchButtonActive
@@ -1868,7 +2539,38 @@ function getDistanceUnitLabel() {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveView("profile")}
+                onClick={() => {
+                  setActiveView("insights");
+                  setShowInsights(false);
+                }}
+                style={
+                  activeView === "insights"
+                    ? styles.viewSwitchButtonActive
+                    : styles.viewSwitchButton
+                }
+              >
+                {text.insightsButton}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("monthly");
+                  setShowInsights(false);
+                }}
+                style={
+                  activeView === "monthly"
+                    ? styles.viewSwitchButtonActive
+                    : styles.viewSwitchButton
+                }
+              >
+                {text.monthlyIdentityTab}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("profile");
+                  setShowInsights(false);
+                }}
                 style={
                   activeView === "profile"
                     ? styles.viewSwitchButtonActive
@@ -1924,9 +2626,31 @@ function getDistanceUnitLabel() {
           </div>
         </div>
 
+        {activeView === "insights" && renderInsightsPanel()}
+
+        {activeView === "monthly" && renderMonthlyIdentityCard()}
+
         {activeView === "runs" ? (
           <section className="runology-main-grid" style={styles.mainGrid}>
-            <div className="runology-form-card" style={styles.formCard}>
+            {isActivityModalOpen && (
+              <div
+                className="runology-modal-backdrop"
+                style={styles.modalBackdrop}
+                onClick={handleCancelEdit}
+              >
+                <div
+                  className="runology-form-card"
+                  style={styles.modalCard}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    aria-label={text.closeActivityModal}
+                    onClick={handleCancelEdit}
+                    style={styles.modalCloseButton}
+                  >
+                    ×
+                  </button>
               <div style={styles.sectionHeader}>
                 <h2 className="runology-section-title" style={styles.sectionTitle}>
                   {editingRunId ? text.editRunTitle : text.addRunTitle}
@@ -2114,7 +2838,9 @@ function getDistanceUnitLabel() {
                   {text.errorPrefix}: {error}
                 </div>
               )}
-            </div>
+                </div>
+              </div>
+            )}
 
             <div className="runology-list-card" style={styles.listCard}>
               <div style={styles.sectionHeader}>
@@ -2123,6 +2849,30 @@ function getDistanceUnitLabel() {
                 </h2>
                 <p style={styles.sectionText}>{text.runsText}</p>
               </div>
+
+              <div style={styles.listToolbar}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetForm();
+                    setMessage("");
+                    setError("");
+                    setIsActivityModalOpen(true);
+                  }}
+                  style={styles.addActivityButton}
+                >
+                  {text.addActivityButton}
+                </button>
+              </div>
+
+              {!isActivityModalOpen && message && (
+                <div style={styles.successBoxDashboard}>{message}</div>
+              )}
+              {!isActivityModalOpen && error && (
+                <div style={styles.errorBoxDashboard}>
+                  {text.errorPrefix}: {error}
+                </div>
+              )}
 
               <div style={styles.activityFilterWrap}>
                 <div style={styles.activityFilterTopRow}>
@@ -2279,7 +3029,9 @@ function getDistanceUnitLabel() {
               )}
             </div>
           </section>
-        ) : (
+        ) : null}
+
+        {activeView === "profile" && (
           <section style={styles.profileSection}>
             <div style={styles.profileCard}>
               <div style={styles.sectionHeader}>
@@ -2335,25 +3087,46 @@ function getDistanceUnitLabel() {
                   />
 
                   <div style={styles.profilePasswordBlock}>
-                    <h3 style={styles.profileSubheading}>{text.changePasswordTitle}</h3>
+                    <div style={styles.profilePasswordHeader}>
+                      <h3 style={styles.profileSubheading}>{text.changePasswordTitle}</h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowProfilePasswords((value) => !value)}
+                        style={styles.passwordToggleButton}
+                      >
+                        {showProfilePasswords
+                          ? language === "lv"
+                            ? "Paslēpt"
+                            : "Hide"
+                          : language === "lv"
+                            ? "Rādīt"
+                            : "Show"}
+                      </button>
+                    </div>
 
-                    <label style={styles.label}>{text.newPasswordShort}</label>
-                    <input
-                      className="runology-input"
-                      type="password"
-                      value={profilePassword}
-                      onChange={(e) => setProfilePassword(e.target.value)}
-                      style={styles.input}
-                    />
+                    <div style={styles.profilePasswordFields}>
+                      <div>
+                        <label style={styles.label}>{text.newPasswordShort}</label>
+                        <input
+                          className="runology-input"
+                          type={showProfilePasswords ? "text" : "password"}
+                          value={profilePassword}
+                          onChange={(e) => setProfilePassword(e.target.value)}
+                          style={styles.input}
+                        />
+                      </div>
 
-                    <label style={styles.label}>{text.confirmNewPasswordShort}</label>
-                    <input
-                      className="runology-input"
-                      type="password"
-                      value={profilePasswordConfirm}
-                      onChange={(e) => setProfilePasswordConfirm(e.target.value)}
-                      style={styles.input}
-                    />
+                      <div>
+                        <label style={styles.label}>{text.confirmNewPasswordShort}</label>
+                        <input
+                          className="runology-input"
+                          type={showProfilePasswords ? "text" : "password"}
+                          value={profilePasswordConfirm}
+                          onChange={(e) => setProfilePasswordConfirm(e.target.value)}
+                          style={styles.input}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <button
@@ -2386,7 +3159,7 @@ function getDistanceUnitLabel() {
 const styles = {  
   page: {
     minHeight: "100vh",
-    background: "#111111",
+    background: "radial-gradient(circle at top left, rgba(34, 197, 94, 0.14) 0%, rgba(15, 15, 15, 0.98) 34%, #101010 100%)",
     fontFamily:
       'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     padding: "32px",
@@ -2401,7 +3174,7 @@ const styles = {
   loadingCard: {
     width: "100%",
     maxWidth: "440px",
-    background: "#2a2a2a",
+    background: "rgba(42, 42, 42, 0.9)",
     borderRadius: "22px",
     padding: "24px 30px 42px",
     textAlign: "center",
@@ -2411,7 +3184,7 @@ const styles = {
   loadingTopBar: {
     display: "flex",
     justifyContent: "flex-end",
-    marginBottom: "16px",
+    marginBottom: "22px",
   },
   logoCircle: {
     width: "80px",
@@ -2431,7 +3204,7 @@ const styles = {
     margin: "0 0 8px 0",
     fontSize: "36px",
     letterSpacing: "-0.04em",
-    color: "#f6efe5",
+    color: "#f8fafc",
   },
   loadingText: {
     margin: 0,
@@ -2447,7 +3220,7 @@ const styles = {
     gap: "0",
     borderRadius: "22px",
     overflow: "hidden",
-    background: "#242424",
+    background: "rgba(36, 36, 36, 0.9)",
     border: "1px solid #2f2f2f",
     boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
   },
@@ -2519,7 +3292,7 @@ const styles = {
   featureBulletText: {
     fontSize: "16px",
     lineHeight: 1.55,
-    color: "#d7e3d8",
+    color: "rgba(236, 253, 245, 0.82)",
     fontWeight: "600",
   },
   brandFooter: {
@@ -2529,7 +3302,7 @@ const styles = {
     fontWeight: "600",
   },
   authCard: {
-    background: "#2a2a2a",
+    background: "rgba(42, 42, 42, 0.9)",
     color: "#f5f2eb",
     padding: "42px 40px",
     display: "flex",
@@ -2558,7 +3331,7 @@ const styles = {
     margin: "0 0 10px 0",
     fontSize: "26px",
     lineHeight: 1.15,
-    color: "#f6efe5",
+    color: "#f8fafc",
     letterSpacing: "-0.03em",
     fontWeight: "700",
   },
@@ -2574,11 +3347,11 @@ const styles = {
     margin: "0 auto",
   },
   header: {
-    background: "#1b1b1b",
+    background: "linear-gradient(135deg, rgba(26, 26, 26, 0.96) 0%, rgba(22, 32, 25, 0.96) 100%)",
     borderRadius: "24px",
     padding: "30px 32px",
-    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.25)",
-    border: "1px solid #292929",
+    boxShadow: "0 18px 54px rgba(0, 0, 0, 0.28)",
+    border: "1px solid rgba(255, 255, 255, 0.06)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -2598,8 +3371,8 @@ const styles = {
   viewSwitch: {
   display: "inline-flex",
   gap: "8px",
-  background: "#242424",
-  border: "1px solid #343434",
+  background: "rgba(36, 36, 36, 0.9)",
+  border: "1px solid rgba(255, 255, 255, 0.07)",
   borderRadius: "14px",
   padding: "4px",
 },
@@ -2607,7 +3380,7 @@ const styles = {
 viewSwitchButton: {
   border: "none",
   background: "transparent",
-  color: "#b8aa95",
+  color: "rgba(255, 255, 255, 0.62)",
   borderRadius: "10px",
   padding: "10px 14px",
   fontSize: "14px",
@@ -2617,7 +3390,7 @@ viewSwitchButton: {
 
 viewSwitchButtonActive: {
   border: "none",
-  background: "#2f2f2f",
+  background: "rgba(47, 47, 47, 0.9)",
   color: "#ffffff",
   borderRadius: "10px",
   padding: "10px 14px",
@@ -2631,11 +3404,11 @@ profileSection: {
 },
 
 profileCard: {
-  background: "#1b1b1b",
+  background: "rgba(26, 26, 26, 0.92)",
   borderRadius: "24px",
   padding: "28px",
-  boxShadow: "0 20px 60px rgba(0, 0, 0, 0.25)",
-  border: "1px solid #292929",
+  boxShadow: "0 18px 54px rgba(0, 0, 0, 0.28)",
+  border: "1px solid rgba(255, 255, 255, 0.06)",
   maxWidth: "760px",
 },
 
@@ -2653,22 +3426,51 @@ inputReadOnly: {
 },
 
 profilePasswordBlock: {
-  marginTop: "16px",
-  paddingTop: "10px",
+  marginTop: "28px",
+  padding: "18px",
+  borderRadius: "18px",
+  background: "rgba(255, 255, 255, 0.035)",
+  border: "1px solid rgba(255, 255, 255, 0.07)",
+},
+
+profilePasswordHeader: {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+  marginBottom: "14px",
+},
+
+profilePasswordFields: {
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
 },
 
 profileSubheading: {
-  margin: "0 0 8px 0",
-  color: "#f6efe5",
+  margin: "0",
+  color: "#f8fafc",
   fontSize: "18px",
   fontWeight: "700",
+},
+
+passwordToggleButton: {
+  border: "1px solid rgba(255, 255, 255, 0.1)",
+  background: "rgba(255, 255, 255, 0.06)",
+  color: "rgba(255, 255, 255, 0.86)",
+  borderRadius: "999px",
+  padding: "8px 12px",
+  fontSize: "13px",
+  fontWeight: "700",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
 },
   topTag: {
     display: "inline-block",
     padding: "7px 12px",
     borderRadius: "999px",
     background: "#262626",
-    color: "#d7e3d8",
+    color: "rgba(236, 253, 245, 0.82)",
     fontSize: "12px",
     fontWeight: "800",
     letterSpacing: "1.2px",
@@ -2678,19 +3480,19 @@ profileSubheading: {
   appTitle: {
     margin: "0 0 8px 0",
     fontSize: "36px",
-    color: "#f6efe5",
+    color: "#f8fafc",
     letterSpacing: "-0.05em",
   },
   appSubtitle: {
     margin: 0,
-    color: "#c0b5a4",
+    color: "rgba(255, 255, 255, 0.64)",
     fontSize: "15px",
     lineHeight: 1.6,
     wordBreak: "break-word",
   },
   mainGrid: {
     display: "grid",
-    gridTemplateColumns: "420px 1fr",
+    gridTemplateColumns: "1fr",
     gap: "24px",
     alignItems: "start",
   },
@@ -2702,11 +3504,11 @@ profileSubheading: {
 },
 
 statCard: {
-  background: "#1b1b1b",
+  background: "linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.025) 100%)",
   borderRadius: "20px",
   padding: "20px",
-  border: "1px solid #292929",
-  boxShadow: "0 20px 60px rgba(0, 0, 0, 0.18)",
+  border: "1px solid rgba(255, 255, 255, 0.06)",
+  boxShadow: "0 16px 42px rgba(0, 0, 0, 0.24)",
   display: "flex",
   flexDirection: "column",
   gap: "8px",
@@ -2717,13 +3519,13 @@ statLabel: {
   fontWeight: "800",
   letterSpacing: "0.4px",
   textTransform: "uppercase",
-  color: "#b8aa95",
+  color: "rgba(255, 255, 255, 0.62)",
 },
 
 statValue: {
   fontSize: "28px",
   fontWeight: "800",
-  color: "#f6efe5",
+  color: "#f8fafc",
   letterSpacing: "-0.03em",
 },
 
@@ -2732,21 +3534,334 @@ statSubtext: {
   fontSize: "13px",
   marginTop: "4px",
 },
+  monthlyIdentityCard: {
+    background: "linear-gradient(135deg, #20231f 0%, #171717 58%, #222018 100%)",
+    border: "1px solid rgba(215, 227, 216, 0.22)",
+    borderRadius: "24px",
+    padding: "22px",
+    marginBottom: "18px",
+    boxShadow: "0 22px 70px rgba(0, 0, 0, 0.24)",
+  },
+
+  monthlyIdentityTopRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "16px",
+  },
+
+  monthlyIdentityEyebrow: {
+    color: "rgba(255, 255, 255, 0.62)",
+    fontSize: "12px",
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+    marginBottom: "8px",
+  },
+
+  monthlyIdentityLine: {
+    margin: 0,
+    color: "#f8fafc",
+    fontSize: "24px",
+    lineHeight: 1.12,
+    letterSpacing: "-0.04em",
+  },
+
+  monthlyIdentityReason: {
+    margin: "14px 0 0 0",
+    color: "#f8fafc",
+    fontSize: "15px",
+    lineHeight: 1.5,
+  },
+
+  monthlyIdentitySupport: {
+    margin: "10px 0 0 0",
+    color: "rgba(236, 253, 245, 0.82)",
+    fontSize: "14px",
+    lineHeight: 1.45,
+  },
+
+  monthlyIdentityBasedOn: {
+    marginTop: "14px",
+    color: "#8d8272",
+    fontSize: "12px",
+    fontWeight: "800",
+  },
+
+  monthlyIdentityShareButton: {
+    border: "1px solid rgba(215, 227, 216, 0.55)",
+    background: "#d7e3d8",
+    color: "#111111",
+    borderRadius: "999px",
+    padding: "10px 14px",
+    fontSize: "12px",
+    fontWeight: "900",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+
+  insightsToggleRow: {
+    display: "flex",
+    justifyContent: "flex-end",
+    marginBottom: "18px",
+  },
+
+  monthlyIdentityActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+  monthlyIdentityShareImageButton: {
+    border: "1px solid rgba(255, 255, 255, 0.14)",
+    background: "rgba(255, 255, 255, 0.06)",
+    color: "#ffffff",
+    borderRadius: "999px",
+    padding: "9px 12px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: 700,
+  },
+
+  insightsButton: {
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    background: "#1f1f1f",
+    color: "#f8fafc",
+    borderRadius: "999px",
+    padding: "11px 16px",
+    fontSize: "13px",
+    fontWeight: "900",
+    cursor: "pointer",
+    boxShadow: "0 12px 34px rgba(0, 0, 0, 0.18)",
+  },
+
+  insightsButtonActive: {
+    border: "1px solid rgba(215, 227, 216, 0.55)",
+    background: "#d7e3d8",
+    color: "#111111",
+    borderRadius: "999px",
+    padding: "11px 16px",
+    fontSize: "13px",
+    fontWeight: "900",
+    cursor: "pointer",
+    boxShadow: "0 12px 34px rgba(0, 0, 0, 0.18)",
+  },
+
+  insightsPanel: {
+    background: "rgba(26, 26, 26, 0.92)",
+    borderRadius: "22px",
+    padding: "22px",
+    border: "1px solid rgba(255, 255, 255, 0.06)",
+    boxShadow: "0 16px 42px rgba(0, 0, 0, 0.24)",
+    marginBottom: "28px",
+  },
+
+  insightsTitle: {
+    margin: "0 0 6px 0",
+    color: "#f8fafc",
+    fontSize: "20px",
+    letterSpacing: "-0.03em",
+  },
+
+  insightsSubtitle: {
+    margin: 0,
+    color: "rgba(255, 255, 255, 0.62)",
+    fontSize: "14px",
+    lineHeight: 1.45,
+  },
+
+  insightsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: "12px",
+    marginBottom: "12px",
+  },
+
+  insightCard: {
+    background: "rgba(36, 36, 36, 0.9)",
+    border: "1px solid rgba(255, 255, 255, 0.06)",
+    borderRadius: "18px",
+    padding: "16px",
+  },
+
+  insightCardTitle: {
+    color: "rgba(255, 255, 255, 0.62)",
+    fontSize: "12px",
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    marginBottom: "8px",
+  },
+
+  insightCardValue: {
+    color: "#f8fafc",
+    fontSize: "22px",
+    fontWeight: "900",
+    letterSpacing: "-0.04em",
+    marginBottom: "8px",
+  },
+
+  insightCardDetail: {
+    color: "rgba(236, 253, 245, 0.82)",
+    fontSize: "13px",
+    lineHeight: 1.45,
+  },
+
+  insightContextBox: {
+    background: "#202020",
+    border: "1px solid rgba(255, 255, 255, 0.06)",
+    borderRadius: "18px",
+    padding: "16px",
+  },
+
+  insightContextLine: {
+    color: "#ffffff",
+    fontSize: "13px",
+    lineHeight: 1.6,
+  },
+
+  chartCard: {
+    background: "rgba(26, 26, 26, 0.92)",
+    borderRadius: "22px",
+    padding: "22px",
+    border: "1px solid rgba(255, 255, 255, 0.06)",
+    boxShadow: "0 16px 42px rgba(0, 0, 0, 0.24)",
+    overflow: "hidden",
+    marginBottom: "28px",
+  },
+
+  sectionHeaderCompact: {
+    marginBottom: "16px",
+  },
+
+  chartTitle: {
+    margin: "0 0 6px 0",
+    color: "#f8fafc",
+    fontSize: "20px",
+    letterSpacing: "-0.03em",
+  },
+
+  chartSubtitle: {
+    margin: 0,
+    color: "rgba(255, 255, 255, 0.62)",
+    fontSize: "14px",
+    lineHeight: 1.45,
+  },
+
+  chartSummaryRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "12px",
+    marginBottom: "10px",
+  },
+
+  chartBigValue: {
+    color: "#f8fafc",
+    fontSize: "28px",
+    fontWeight: "800",
+    letterSpacing: "-0.04em",
+  },
+
+  chartMutedText: {
+    color: "rgba(255, 255, 255, 0.62)",
+    fontSize: "13px",
+    marginTop: "3px",
+  },
+
+  chartSmallBadge: {
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    background: "rgba(36, 36, 36, 0.9)",
+    color: "rgba(236, 253, 245, 0.82)",
+    borderRadius: "999px",
+    padding: "7px 10px",
+    fontSize: "12px",
+    fontWeight: "800",
+  },
+
+  chartSvg: {
+    width: "100%",
+    height: "220px",
+    display: "block",
+  },
+
+  emptyChartText: {
+    color: "rgba(255, 255, 255, 0.62)",
+    fontSize: "14px",
+    lineHeight: 1.5,
+    padding: "18px",
+    borderRadius: "16px",
+    background: "rgba(36, 36, 36, 0.9)",
+    border: "1px solid rgba(255, 255, 255, 0.06)",
+  },
+
   formCard: {
-    background: "#1b1b1b",
+    background: "rgba(26, 26, 26, 0.92)",
     borderRadius: "24px",
     padding: "28px",
-    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.25)",
-    border: "1px solid #292929",
+    boxShadow: "0 18px 54px rgba(0, 0, 0, 0.28)",
+    border: "1px solid rgba(255, 255, 255, 0.06)",
     position: "sticky",
     top: "24px",
   },
-  listCard: {
-    background: "#1b1b1b",
+  modalBackdrop: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 100,
+    background: "rgba(0, 0, 0, 0.72)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    padding: "28px 14px",
+    overflowY: "auto",
+  },
+  modalCard: {
+    width: "min(720px, 100%)",
+    position: "relative",
+    background: "rgba(26, 26, 26, 0.92)",
     borderRadius: "24px",
     padding: "28px",
-    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.25)",
-    border: "1px solid #292929",
+    boxShadow: "0 28px 90px rgba(0, 0, 0, 0.48)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+  },
+  modalCloseButton: {
+    position: "absolute",
+    top: "16px",
+    right: "16px",
+    width: "36px",
+    height: "36px",
+    borderRadius: "999px",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    background: "rgba(36, 36, 36, 0.9)",
+    color: "#f8fafc",
+    fontSize: "24px",
+    lineHeight: "32px",
+    cursor: "pointer",
+  },
+  listToolbar: {
+    display: "flex",
+    justifyContent: "flex-start",
+    marginBottom: "18px",
+  },
+  addActivityButton: {
+    border: "1px solid rgba(34, 197, 94, 0.62)",
+    borderRadius: "16px",
+    padding: "13px 16px",
+    fontSize: "15px",
+    fontWeight: "800",
+    cursor: "pointer",
+    color: "#08130c",
+    background: "linear-gradient(135deg, #22c55e 0%, #86efac 100%)",
+    boxShadow: "0 18px 30px rgba(0, 0, 0, 0.22)",
+  },
+  listCard: {
+    background: "rgba(20, 20, 20, 0.78)",
+    borderRadius: "24px",
+    padding: "28px",
+    boxShadow: "0 18px 54px rgba(0, 0, 0, 0.28)",
+    border: "1px solid rgba(255, 255, 255, 0.06)",
     minHeight: "500px",
   },
   sectionHeader: {
@@ -2755,12 +3870,12 @@ statSubtext: {
   sectionTitle: {
     margin: "0 0 6px 0",
     fontSize: "26px",
-    color: "#f6efe5",
+    color: "#f8fafc",
     letterSpacing: "-0.04em",
   },
   sectionText: {
     margin: 0,
-    color: "#c0b5a4",
+    color: "rgba(255, 255, 255, 0.64)",
     fontSize: "14px",
     lineHeight: 1.7,
   },
@@ -2778,7 +3893,7 @@ statSubtext: {
   label: {
     fontSize: "15px",
     fontWeight: "700",
-    color: "#e6d9c4",
+    color: "rgba(248, 250, 252, 0.84)",
     marginTop: "10px",
   },
   durationGrid: {
@@ -2794,9 +3909,9 @@ statSubtext: {
     fontSize: "16px",
     borderRadius: "10px",
     border: "1px solid #4a443c",
-    background: "#2f2f2f",
+    background: "rgba(47, 47, 47, 0.9)",
     outline: "none",
-    color: "#f6efe5",
+    color: "#f8fafc",
     boxShadow: "none",
   },
   textarea: {
@@ -2805,17 +3920,17 @@ statSubtext: {
     padding: "15px 16px",
     fontSize: "16px",
     borderRadius: "14px",
-    border: "1px solid #343434",
-    background: "#242424",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    background: "rgba(36, 36, 36, 0.9)",
     outline: "none",
-    color: "#f6efe5",
+    color: "#f8fafc",
     minHeight: "124px",
     resize: "vertical",
     boxShadow: "none",
   },
   pacePreviewBox: {
-    background: "#242424",
-    border: "1px solid #343434",
+    background: "rgba(36, 36, 36, 0.9)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
     borderRadius: "16px",
     padding: "16px",
     marginTop: "6px",
@@ -2823,7 +3938,7 @@ statSubtext: {
   pacePreviewValue: {
     fontSize: "20px",
     fontWeight: "700",
-    color: "#f6efe5",
+    color: "#f8fafc",
     marginTop: "6px",
     letterSpacing: "-0.02em",
   },
@@ -2833,8 +3948,8 @@ statSubtext: {
     gap: "10px",
   },
   emojiButton: {
-    border: "1px solid #343434",
-    background: "#242424",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    background: "rgba(36, 36, 36, 0.9)",
     borderRadius: "16px",
     minWidth: "50px",
     minHeight: "50px",
@@ -2845,8 +3960,8 @@ statSubtext: {
     boxShadow: "none",
   },
   emojiButtonActive: {
-    border: "1px solid #536557",
-    background: "#2a322c",
+    border: "1px solid rgba(34, 197, 94, 0.52)",
+    background: "rgba(34, 197, 94, 0.13)",
     borderRadius: "16px",
     minWidth: "50px",
     minHeight: "50px",
@@ -2877,9 +3992,9 @@ statSubtext: {
     justifyContent: "center",
     borderRadius: "999px",
     padding: "4px 8px",
-    background: "#2a2a2a",
-    border: "1px solid #343434",
-    color: "#b8aa95",
+    background: "rgba(42, 42, 42, 0.9)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    color: "rgba(255, 255, 255, 0.62)",
     fontSize: "11px",
     fontWeight: "900",
     textTransform: "uppercase",
@@ -2896,21 +4011,21 @@ statSubtext: {
     padding: "12px 12px",
     minHeight: "72px",
     cursor: "pointer",
-    color: "#f6efe5",
-    background: "#242424",
+    color: "#f8fafc",
+    background: "rgba(36, 36, 36, 0.9)",
     fontFamily: "inherit",
     textAlign: "left",
     display: "grid",
     gap: "7px",
   },
   choiceButtonActive: {
-    border: "1px solid #536557",
+    border: "1px solid rgba(34, 197, 94, 0.52)",
     borderRadius: "14px",
     padding: "12px 12px",
     minHeight: "72px",
     cursor: "pointer",
-    color: "#f6efe5",
-    background: "#2a322c",
+    color: "#dcfce7",
+    background: "rgba(34, 197, 94, 0.14)",
     fontFamily: "inherit",
     textAlign: "left",
     display: "grid",
@@ -2929,7 +4044,7 @@ statSubtext: {
     lineHeight: 1,
   },
   choiceSubLabel: {
-    color: "#b8aa95",
+    color: "rgba(255, 255, 255, 0.62)",
     fontSize: "12px",
     fontWeight: "600",
   },
@@ -2941,8 +4056,8 @@ statSubtext: {
     fontSize: "17px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#f6efe5",
-    background: "#2f2f2f",
+    color: "#f8fafc",
+    background: "rgba(47, 47, 47, 0.9)",
     boxShadow: "none",
     marginTop: "10px",
   },
@@ -2954,31 +4069,31 @@ statSubtext: {
     fontSize: "17px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#f6efe5",
-    background: "#2f2f2f",
+    color: "#f8fafc",
+    background: "rgba(47, 47, 47, 0.9)",
     boxShadow: "none",
   },
   primaryButtonDashboard: {
     width: "100%",
-    border: "none",
+    border: "1px solid rgba(34, 197, 94, 0.62)",
     borderRadius: "16px",
     padding: "15px 18px",
     fontSize: "16px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#ffffff",
-    background: "linear-gradient(135deg, #203428 0%, #3a5244 100%)",
+    color: "#08130c",
+    background: "linear-gradient(135deg, #22c55e 0%, #86efac 100%)",
     boxShadow: "0 18px 30px rgba(0, 0, 0, 0.22)",
   },
   cancelButton: {
-    border: "1px solid #343434",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
     borderRadius: "16px",
     padding: "15px 18px",
     fontSize: "16px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#f6efe5",
-    background: "#242424",
+    color: "#f8fafc",
+    background: "rgba(36, 36, 36, 0.9)",
     whiteSpace: "nowrap",
   },
   linkButton: {
@@ -2992,14 +4107,14 @@ statSubtext: {
     textAlign: "left",
   },
   logoutButton: {
-    border: "1px solid #343434",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
     borderRadius: "16px",
     padding: "12px 18px",
     fontSize: "15px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#f6efe5",
-    background: "#242424",
+    color: "#f8fafc",
+    background: "rgba(36, 36, 36, 0.9)",
     whiteSpace: "nowrap",
   },
   successBox: {
@@ -3047,9 +4162,9 @@ statSubtext: {
   emptyState: {
     padding: "34px",
     borderRadius: "18px",
-    background: "#242424",
+    background: "rgba(36, 36, 36, 0.9)",
     border: "1px dashed #343434",
-    color: "#c0b5a4",
+    color: "rgba(255, 255, 255, 0.64)",
     fontSize: "15px",
     textAlign: "center",
   },
@@ -3066,24 +4181,24 @@ statSubtext: {
     flexWrap: "wrap",
   },
   exportCsvButton: {
-    border: "1px solid #536557",
+    border: "1px solid rgba(34, 197, 94, 0.52)",
     borderRadius: "14px",
     padding: "10px 13px",
     fontSize: "14px",
     fontWeight: "800",
     cursor: "pointer",
-    color: "#f6efe5",
-    background: "#2a322c",
+    color: "#dcfce7",
+    background: "rgba(34, 197, 94, 0.14)",
   },
   exportCsvButtonDisabled: {
-    border: "1px solid #343434",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
     borderRadius: "14px",
     padding: "10px 13px",
     fontSize: "14px",
     fontWeight: "800",
     cursor: "not-allowed",
     color: "#6f6659",
-    background: "#242424",
+    background: "rgba(36, 36, 36, 0.9)",
   },
   activityFilterGroup: {
     display: "flex",
@@ -3091,8 +4206,8 @@ statSubtext: {
     gap: "8px",
     padding: "6px",
     borderRadius: "18px",
-    background: "#242424",
-    border: "1px solid #343434",
+    background: "rgba(36, 36, 36, 0.9)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
   },
   activityFilterButton: {
     border: "1px solid transparent",
@@ -3101,18 +4216,18 @@ statSubtext: {
     fontSize: "14px",
     fontWeight: "800",
     cursor: "pointer",
-    color: "#b8aa95",
+    color: "rgba(255, 255, 255, 0.62)",
     background: "transparent",
   },
   activityFilterButtonActive: {
-    border: "1px solid #536557",
+    border: "1px solid rgba(34, 197, 94, 0.5)",
     borderRadius: "14px",
     padding: "10px 13px",
     fontSize: "14px",
     fontWeight: "800",
     cursor: "pointer",
-    color: "#f6efe5",
-    background: "#2a322c",
+    color: "#dcfce7",
+    background: "rgba(34, 197, 94, 0.14)",
   },
   runList: {
     display: "grid",
@@ -3121,9 +4236,9 @@ statSubtext: {
   runCard: {
     borderRadius: "22px",
     padding: "22px",
-    background: "#242424",
-    border: "1px solid #343434",
-    boxShadow: "none",
+    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.032) 100%)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    boxShadow: "0 12px 34px rgba(0, 0, 0, 0.22)",
   },
   runTopRow: {
     display: "flex",
@@ -3136,17 +4251,17 @@ statSubtext: {
   runDate: {
     fontSize: "18px",
     fontWeight: "800",
-    color: "#f6efe5",
+    color: "#f8fafc",
     letterSpacing: "-0.02em",
   },
   runPill: {
     padding: "8px 12px",
     borderRadius: "999px",
-    background: "#2e2e2e",
-    color: "#d7e3d8",
+    background: "rgba(46, 46, 46, 0.86)",
+    color: "rgba(236, 253, 245, 0.82)",
     fontWeight: "800",
     fontSize: "13px",
-    border: "1px solid #3a3a3a",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
   },
   metaChipRow: {
     display: "flex",
@@ -3159,8 +4274,8 @@ statSubtext: {
     minWidth: "42px",
     height: "42px",
     borderRadius: "999px",
-    background: "#2e2e2e",
-    border: "1px solid #3a3a3a",
+    background: "rgba(46, 46, 46, 0.86)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -3171,8 +4286,8 @@ statSubtext: {
     minHeight: "30px",
     padding: "7px 10px",
     borderRadius: "999px",
-    background: "#2e2e2e",
-    border: "1px solid #3a3a3a",
+    background: "rgba(46, 46, 46, 0.86)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
@@ -3190,7 +4305,7 @@ statSubtext: {
     marginBottom: "14px",
   },
   infoBlock: {
-    background: "#2a2a2a",
+    background: "rgba(42, 42, 42, 0.9)",
     border: "1px solid #383838",
     borderRadius: "16px",
     padding: "14px",
@@ -3203,12 +4318,12 @@ statSubtext: {
     fontWeight: "800",
     letterSpacing: "0.4px",
     textTransform: "uppercase",
-    color: "#b8aa95",
+    color: "rgba(255, 255, 255, 0.62)",
   },
   infoValue: {
     fontSize: "18px",
     fontWeight: "700",
-    color: "#f6efe5",
+    color: "#f8fafc",
     letterSpacing: "-0.02em",
   },
   runActionRow: {
@@ -3224,8 +4339,8 @@ statSubtext: {
     fontSize: "14px",
     fontWeight: "700",
     cursor: "pointer",
-    color: "#f6efe5",
-    background: "#2e2e2e",
+    color: "#f8fafc",
+    background: "rgba(46, 46, 46, 0.86)",
   },
   deleteButton: {
     border: "none",
@@ -3238,7 +4353,7 @@ statSubtext: {
     background: "#3a2424",
   },
   notesBox: {
-    background: "#2a2a2a",
+    background: "rgba(42, 42, 42, 0.9)",
     border: "1px solid #383838",
     borderRadius: "16px",
     padding: "15px",
@@ -3247,7 +4362,7 @@ statSubtext: {
     margin: "8px 0 0 0",
     fontSize: "15px",
     lineHeight: 1.7,
-    color: "#ddd1c0",
+    color: "rgba(248, 250, 252, 0.78)",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   },
