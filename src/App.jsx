@@ -322,7 +322,9 @@ export default function App() {
   const [activityType, setActivityType] = useState("run");
   const [activityFilter, setActivityFilter] = useState("all");
   const [distance, setDistance] = useState("");
-  const [duration, setDuration] = useState("");
+  const [durationHours, setDurationHours] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("");
+  const [durationSeconds, setDurationSeconds] = useState("");
   const [notes, setNotes] = useState("");
   const [mood, setMood] = useState("🙂");
   const [weather, setWeather] = useState("☀️");
@@ -434,8 +436,10 @@ export default function App() {
         hikeType: "Pārgājiens",
         distance: "Distance (km)",
         distancePlaceholder: "Piemēram, 5",
-        duration: "Ilgums (min)",
-        durationPlaceholder: "Piemēram, 28",
+        duration: "Ilgums",
+        durationHours: "Stundas",
+        durationMinutes: "Minūtes",
+        durationSeconds: "Sekundes",
         pace: "Temps",
         mood: "Sajūta",
         weather: "Laikapstākļi",
@@ -477,7 +481,7 @@ export default function App() {
         noRuns: "Vēl nav nevienas aktivitātes. Pievieno pirmo ierakstu.",
         noNotes: "Nav piezīmju.",
         mustLogin: "Tev vispirms jāielogojas.",
-        invalidPace: "Aprēķina automātiski",
+        invalidPace: "Ievadi distance un ilgumu, lai redzētu tempu.",
         errorPrefix: "Kļūda",
         distanceLabel: "Distance",
         durationLabel: "Ilgums",
@@ -557,8 +561,10 @@ export default function App() {
         hikeType: "Hike",
         distance: "Distance (km)",
         distancePlaceholder: "For example, 5",
-        duration: "Duration (min)",
-        durationPlaceholder: "For example, 28",
+        duration: "Duration",
+        durationHours: "Hours",
+        durationMinutes: "Minutes",
+        durationSeconds: "Seconds",
         pace: "Pace",
         mood: "Feeling",
         weather: "Weather",
@@ -600,7 +606,7 @@ export default function App() {
         noRuns: "No activities yet. Add your first entry.",
         noNotes: "No notes.",
         mustLogin: "You must sign in first.",
-        invalidPace: "Calculates automatically",
+        invalidPace: "Enter distance and duration to see pace.",
         errorPrefix: "Error",
         distanceLabel: "Distance",
         durationLabel: "Duration",
@@ -1046,7 +1052,9 @@ async function handleSaveProfile(e) {
     setDate(new Date().toISOString().slice(0, 10));
     setActivityType("run");
     setDistance("");
-    setDuration("");
+    setDurationHours("");
+    setDurationMinutes("");
+    setDurationSeconds("");
     setNotes("");
     setMood("🙂");
     setWeather("☀️");
@@ -1078,7 +1086,10 @@ async function handleSaveProfile(e) {
     setDate(run.date || "");
     setActivityType(run.type || "run");
     setDistance(run.distance != null ? String(run.distance) : "");
-    setDuration(run.duration != null ? minutesToDurationInput(run.duration) : "");
+    const editDuration = splitDurationMinutes(run.duration);
+    setDurationHours(editDuration.hours);
+    setDurationMinutes(editDuration.minutes);
+    setDurationSeconds(editDuration.seconds);
     setNotes(run.notes || "");
     setMood(run.mood || "🙂");
     setWeather(run.weather || "☀️");
@@ -1106,22 +1117,39 @@ async function handleSaveProfile(e) {
     setError("");
   }
 
-function durationInputToMinutes(value) {
-  if (!value) return NaN;
+function durationPartsToMinutes(hoursValue, minutesValue, secondsValue) {
+  const hours = hoursValue === "" ? 0 : Number(hoursValue);
+  const minutes = minutesValue === "" ? 0 : Number(minutesValue);
+  const seconds = secondsValue === "" ? 0 : Number(secondsValue);
 
-  const parts = value.split(":").map(Number);
-
-  if (parts.length === 2) {
-    const [hours, minutes] = parts;
-    return hours * 60 + minutes;
+  if (
+    !Number.isFinite(hours) ||
+    !Number.isFinite(minutes) ||
+    !Number.isFinite(seconds) ||
+    hours < 0 ||
+    minutes < 0 ||
+    seconds < 0 ||
+    minutes > 59 ||
+    seconds > 59
+  ) {
+    return NaN;
   }
 
-  if (parts.length === 3) {
-    const [hours, minutes, seconds] = parts;
-    return hours * 60 + minutes + seconds / 60;
+  return hours * 60 + minutes + seconds / 60;
+}
+
+function splitDurationMinutes(value) {
+  const totalSeconds = Math.round(Number(value) * 60);
+
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+    return { hours: "", minutes: "", seconds: "" };
   }
 
-  return NaN;
+  return {
+    hours: String(Math.floor(totalSeconds / 3600)),
+    minutes: String(Math.floor((totalSeconds % 3600) / 60)),
+    seconds: String(totalSeconds % 60),
+  };
 }
 
 function formatDurationFromMinutes(value) {
@@ -1154,7 +1182,7 @@ function formatDurationFromMinutes(value) {
         ? 0
         : parseFloat(String(distance).replace(",", "."));
 
-     const parsedDuration = durationInputToMinutes(duration);   
+     const parsedDuration = durationPartsToMinutes(durationHours, durationMinutes, durationSeconds);   
 
     if (
       Number.isNaN(parsedDuration) ||
@@ -1279,10 +1307,7 @@ function formatDurationFromMinutes(value) {
 
  function formatPace(distanceValue, durationValue) {
   const distanceNum = parseFloat(String(distanceValue).replace(",", "."));
-  const durationNum =
-  String(durationValue).includes(":")
-    ? durationInputToMinutes(durationValue)
-    : parseFloat(String(durationValue).replace(",", "."));
+  const durationNum = parseFloat(String(durationValue).replace(",", "."));
 
   if (!distanceNum || !durationNum || distanceNum <= 0 || durationNum <= 0) {
     return text.invalidPace;
@@ -1953,21 +1978,49 @@ function getDistanceUnitLabel() {
                 />
 
                <label style={styles.label}>{text.duration}</label>
-                <input
-                  className="runology-input"
-                  type="time"
-                  step="1"
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  required
-                  style={styles.input}
-                />
+                <div style={styles.durationGrid}>
+                  <input
+                    className="runology-input"
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    step="1"
+                    placeholder={text.durationHours}
+                    value={durationHours}
+                    onChange={(e) => setDurationHours(e.target.value)}
+                    style={styles.input}
+                  />
+                  <input
+                    className="runology-input"
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    max="59"
+                    step="1"
+                    placeholder={text.durationMinutes}
+                    value={durationMinutes}
+                    onChange={(e) => setDurationMinutes(e.target.value)}
+                    style={styles.input}
+                  />
+                  <input
+                    className="runology-input"
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    max="59"
+                    step="1"
+                    placeholder={text.durationSeconds}
+                    value={durationSeconds}
+                    onChange={(e) => setDurationSeconds(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
 
                 {activityType !== "gym" && (
                   <div style={styles.pacePreviewBox}>
                     <span style={styles.infoLabel}>{text.pace}</span>
                     <div style={styles.pacePreviewValue}>
-                      {formatPace(distance, duration)}
+                      {formatPace(distance, durationPartsToMinutes(durationHours, durationMinutes, durationSeconds))}
                     </div>
                   </div>
                 )}
@@ -2728,6 +2781,12 @@ statSubtext: {
     color: "#e6d9c4",
     marginTop: "10px",
   },
+  durationGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr 1fr",
+    gap: "10px",
+  },
+
   input: {
     width: "100%",
     boxSizing: "border-box",
