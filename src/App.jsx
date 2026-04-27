@@ -1186,6 +1186,27 @@ function getDistanceUnitLabel() {
     setConfirmNewPassword("");
   }
 
+  function goHome() {
+    setActiveView("runs");
+    setEditingRunId(null);
+    resetForm();
+    setMessage("");
+    setError("");
+    setProfileMessage("");
+    setProfileError("");
+
+    if (!session) {
+      setAuthMode("choose");
+      setPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    }
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
   if (pageLoading) {
     return (
       <div className="runology-page" style={styles.page}>
@@ -1282,7 +1303,15 @@ function getDistanceUnitLabel() {
       <div className="runology-page" style={styles.page}>
         <div className="runology-auth-shell" style={styles.authShell}>
           <div className="runology-brand-panel" style={styles.brandPanel}>
-            <div style={styles.brandBadge}>{text.brand}</div>
+            <button
+              type="button"
+              onClick={goHome}
+              style={{ ...styles.brandBadge, ...styles.brandHomeButton }}
+              aria-label={language === "lv" ? "Atgriezties sākumlapā" : "Back to home"}
+              title={language === "lv" ? "Atgriezties sākumlapā" : "Back to home"}
+            >
+              {text.brand}
+            </button>
 
             <div style={styles.brandContent}>
               <h1 className="runology-brand-title" style={styles.brandTitle}>
@@ -1519,7 +1548,15 @@ function getDistanceUnitLabel() {
       <div style={styles.appShell}>
         <header className="runology-header" style={styles.header}>
           <div style={styles.headerLeft}>
-            <div style={styles.topTag}>{text.brand}</div>
+            <button
+              type="button"
+              onClick={goHome}
+              style={{ ...styles.topTag, ...styles.brandHomeButton }}
+              aria-label={language === "lv" ? "Atgriezties sākumlapā" : "Back to home"}
+              title={language === "lv" ? "Atgriezties sākumlapā" : "Back to home"}
+            >
+              {text.brand}
+            </button>
             <h1 className="runology-app-title" style={styles.appTitle}>
               {text.headerTitle}
             </h1>
@@ -2018,6 +2055,11 @@ const styles = {
     fontWeight: "700",
     letterSpacing: "1px",
     textTransform: "uppercase",
+  },
+  brandHomeButton: {
+    cursor: "pointer",
+    background: "transparent",
+    fontFamily: "inherit",
   },
   brandContent: {
     marginTop: "70px",
