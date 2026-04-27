@@ -2,10 +2,17 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
 
 const responsiveCss = `
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   @media (max-width: 1080px) {
-.runology-stats-grid {
-  grid-template-columns: 1fr !important;
-    }
     .runology-auth-shell {
       grid-template-columns: 1fr !important;
       min-height: auto !important;
@@ -23,12 +30,13 @@ const responsiveCss = `
     .runology-auth-card-inner {
       margin-top: 0 !important;
     }
+
+    .runology-stats-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
   }
 
   @media (max-width: 768px) {
-  .runology-stats-grid {
-  grid-template-columns: 1fr !important;
-} 
     .runology-page {
       padding: 14px !important;
     }
@@ -59,7 +67,6 @@ const responsiveCss = `
       font-size: 28px !important;
     }
 
-
     .runology-header {
       padding: 22px !important;
       flex-direction: column !important;
@@ -67,7 +74,35 @@ const responsiveCss = `
     }
 
     .runology-header-actions {
-      justify-content: space-between !important;
+      width: 100% !important;
+      justify-content: flex-start !important;
+      align-items: stretch !important;
+      flex-direction: column !important;
+      gap: 10px !important;
+    }
+
+    .runology-view-switch {
+      width: 100% !important;
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 8px !important;
+      padding: 6px !important;
+    }
+
+    .runology-view-switch button {
+      width: 100% !important;
+      text-align: center !important;
+      white-space: normal !important;
+      min-height: 42px !important;
+      padding: 10px 8px !important;
+    }
+
+    .runology-language-switch {
+      align-self: flex-start !important;
+    }
+
+    .runology-logout-button {
+      width: 100% !important;
     }
 
     .runology-app-title {
@@ -83,6 +118,16 @@ const responsiveCss = `
       padding: 22px !important;
     }
 
+    .runology-stats-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 12px !important;
+      margin-bottom: 20px !important;
+    }
+
+    .runology-duration-grid {
+      grid-template-columns: 1fr !important;
+    }
+
     .runology-run-info-row {
       grid-template-columns: 1fr !important;
     }
@@ -96,11 +141,103 @@ const responsiveCss = `
     }
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: 560px) {
     .runology-page {
       padding: 10px !important;
     }
 
+    .runology-header,
+    .runology-list-card,
+    .runology-form-card,
+    .runology-profile-card,
+    .runology-insights-panel,
+    .runology-chart-card,
+    .runology-monthly-identity-card {
+      padding: 18px !important;
+      border-radius: 20px !important;
+    }
+
+    .runology-stats-grid {
+      grid-template-columns: 1fr !important;
+    }
+
+    .runology-stat-card {
+      padding: 16px !important;
+    }
+
+    .runology-stat-value {
+      font-size: 24px !important;
+    }
+
+    .runology-view-switch {
+      grid-template-columns: 1fr !important;
+    }
+
+    .runology-activity-filter-top-row {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+
+    .runology-activity-filter-group {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      width: 100% !important;
+    }
+
+    .runology-activity-filter-group button,
+    .runology-export-csv-button {
+      width: 100% !important;
+      white-space: normal !important;
+    }
+
+    .runology-export-csv-button {
+      text-align: center !important;
+    }
+
+    .runology-form-actions {
+      grid-template-columns: 1fr !important;
+    }
+
+    .runology-run-action-row {
+      display: grid !important;
+      grid-template-columns: 1fr !important;
+      align-items: stretch !important;
+    }
+
+    .runology-run-action-row button {
+      width: 100% !important;
+    }
+
+    .runology-insights-grid {
+      grid-template-columns: 1fr !important;
+    }
+
+    .runology-monthly-identity-top-row {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+
+    .runology-monthly-identity-actions {
+      display: grid !important;
+      grid-template-columns: 1fr !important;
+      width: 100% !important;
+    }
+
+    .runology-monthly-identity-actions button {
+      width: 100% !important;
+    }
+
+    .runology-profile-password-header {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+
+    .runology-password-toggle-button {
+      width: 100% !important;
+    }
+  }
+
+  @media (max-width: 480px) {
     .runology-brand-title {
       font-size: 38px !important;
     }
@@ -128,28 +265,6 @@ const responsiveCss = `
     .runology-cancel-button,
     .runology-link-button {
       font-size: 15px !important;
-    }
-
-    .runology-header-actions {
-      flex-direction: column !important;
-      align-items: stretch !important;
-    }
-
-    .runology-logout-button {
-      width: 100% !important;
-    }
-
-    .runology-language-switch {
-      align-self: flex-start !important;
-    }
-
-    .runology-form-actions {
-      grid-template-columns: 1fr !important;
-    }
-
-    .runology-run-action-row {
-      flex-direction: column !important;
-      align-items: stretch !important;
     }
 
     .runology-emoji-row {
@@ -2036,13 +2151,13 @@ function renderPaceTrendChart() {
 
 function renderMonthlyIdentityCard() {
   return (
-    <section style={styles.monthlyIdentityCard}>
-      <div style={styles.monthlyIdentityTopRow}>
+    <section className="runology-monthly-identity-card" style={styles.monthlyIdentityCard}>
+      <div className="runology-monthly-identity-top-row" style={styles.monthlyIdentityTopRow}>
         <div>
           <div style={styles.monthlyIdentityEyebrow}>🧭 {monthlyIdentity.title}</div>
           <h2 style={styles.monthlyIdentityLine}>{monthlyIdentity.line}</h2>
         </div>
-        <div style={styles.monthlyIdentityActions}>
+        <div className="runology-monthly-identity-actions" style={styles.monthlyIdentityActions}>
           <button type="button" onClick={handleShareMonthlyIdentity} style={styles.monthlyIdentityShareButton}>
             {monthlyIdentity.shareLabel}
           </button>
@@ -2064,7 +2179,7 @@ function renderMonthlyIdentityCard() {
 function renderInsightsPanel() {
   if (insightData.count < 2) {
     return (
-      <section style={styles.insightsPanel}>
+      <section className="runology-insights-panel" style={styles.insightsPanel}>
         <div style={styles.sectionHeaderCompact}>
           <h2 style={styles.insightsTitle}>{text.insightsTitle}</h2>
           <p style={styles.insightsSubtitle}>{text.insightsNotEnough}</p>
@@ -2074,7 +2189,7 @@ function renderInsightsPanel() {
   }
 
   return (
-    <section style={styles.insightsPanel}>
+    <section className="runology-insights-panel" style={styles.insightsPanel}>
       <div style={styles.sectionHeaderCompact}>
         <h2 style={styles.insightsTitle}>{text.insightsTitle}</h2>
         <p style={styles.insightsSubtitle}>
@@ -2082,7 +2197,7 @@ function renderInsightsPanel() {
         </p>
       </div>
 
-      <div style={styles.insightsGrid}>
+      <div className="runology-insights-grid" style={styles.insightsGrid}>
         {insightData.cards.map((card) => (
           <div key={card.title} style={styles.insightCard}>
             <div style={styles.insightCardTitle}>{card.title}</div>
@@ -2522,7 +2637,7 @@ function renderInsightsPanel() {
           </div>
 
           <div className="runology-header-actions" style={styles.headerActions}>
-            <div style={styles.viewSwitch}>
+            <div className="runology-view-switch" style={styles.viewSwitch}>
               <button
                 type="button"
                 onClick={() => {
@@ -2597,26 +2712,26 @@ function renderInsightsPanel() {
             <div style={styles.statLabel}>
               {language === "lv" ? "Aktivitātes šajā mēnesī" : "Activities this month"}
             </div>
-            <div style={styles.statValue}>{stats.totalActivitiesThisMonth}</div>
+            <div className="runology-stat-value" style={styles.statValue}>{stats.totalActivitiesThisMonth}</div>
           </div>
 
           <div style={styles.statCard}>
             <div style={styles.statLabel}>🏃 {text.runType}</div>
-            <div style={styles.statValue}>{stats.runCount}</div>
+            <div className="runology-stat-value" style={styles.statValue}>{stats.runCount}</div>
             <div style={styles.statSubtext}>{stats.runDistance} km</div>
             <div style={styles.statSubtext}>{stats.runPace}</div>
           </div>
 
           <div style={styles.statCard}>
             <div style={styles.statLabel}>🥾 {text.hikeType}</div>
-            <div style={styles.statValue}>{stats.hikeCount}</div>
+            <div className="runology-stat-value" style={styles.statValue}>{stats.hikeCount}</div>
             <div style={styles.statSubtext}>{stats.hikeDistance} km</div>
             <div style={styles.statSubtext}>{stats.hikePace}</div>
           </div>
 
           <div style={styles.statCard}>
             <div style={styles.statLabel}>🏋️ {text.gymType}</div>
-            <div style={styles.statValue}>{stats.gymCount}</div>
+            <div className="runology-stat-value" style={styles.statValue}>{stats.gymCount}</div>
             <div style={styles.statSubtext}>
               {language === "lv" ? "Aktivitātes" : "Activities"}
             </div>
@@ -2702,7 +2817,7 @@ function renderInsightsPanel() {
                 />
 
                <label style={styles.label}>{text.duration}</label>
-                <div style={styles.durationGrid}>
+                <div className="runology-duration-grid" style={styles.durationGrid}>
                   <input
                     className="runology-input"
                     type="number"
@@ -2875,9 +2990,10 @@ function renderInsightsPanel() {
               )}
 
               <div style={styles.activityFilterWrap}>
-                <div style={styles.activityFilterTopRow}>
+                <div className="runology-activity-filter-top-row" style={styles.activityFilterTopRow}>
                   <span style={styles.infoLabel}>{text.activityFilter}</span>
                   <button
+                    className="runology-export-csv-button"
                     type="button"
                     onClick={handleExportCsv}
                     disabled={filteredRuns.length === 0}
@@ -2890,7 +3006,7 @@ function renderInsightsPanel() {
                     {text.exportCsv}
                   </button>
                 </div>
-                <div style={styles.activityFilterGroup}>
+                <div className="runology-activity-filter-group" style={styles.activityFilterGroup}>
                   <button
                     type="button"
                     onClick={() => setActivityFilter("all")}
@@ -3033,7 +3149,7 @@ function renderInsightsPanel() {
 
         {activeView === "profile" && (
           <section style={styles.profileSection}>
-            <div style={styles.profileCard}>
+            <div className="runology-profile-card" style={styles.profileCard}>
               <div style={styles.sectionHeader}>
                 <h2 className="runology-section-title" style={styles.sectionTitle}>
                   {text.profileTitle}
@@ -3087,7 +3203,7 @@ function renderInsightsPanel() {
                   />
 
                   <div style={styles.profilePasswordBlock}>
-                    <div style={styles.profilePasswordHeader}>
+                    <div className="runology-profile-password-header" style={styles.profilePasswordHeader}>
                       <h3 style={styles.profileSubheading}>{text.changePasswordTitle}</h3>
                       <button
                         type="button"
