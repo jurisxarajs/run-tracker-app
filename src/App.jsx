@@ -12,6 +12,20 @@ const responsiveCss = `
     overflow-x: hidden;
   }
 
+  input[type="date"] {
+    text-align: left !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+  }
+
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left !important;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    margin-left: auto !important;
+  }
+
   @media (max-width: 1080px) {
     .runology-auth-shell {
       grid-template-columns: 1fr !important;
@@ -2862,7 +2876,7 @@ function renderInsightsPanel() {
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   required
-                  style={styles.input}
+                  style={{ ...styles.input, ...styles.dateInput }}
                 />
 
                 <label style={styles.label}>{text.distance}</label>
@@ -3001,17 +3015,14 @@ function renderInsightsPanel() {
                       ? text.saveChanges
                       : text.saveRun}
                   </button>
-
-                  {editingRunId && (
-                    <button
-                      className="runology-cancel-button"
-                      type="button"
-                      onClick={handleCancelEdit}
-                      style={styles.cancelButton}
-                    >
-                      {text.cancelEdit}
-                    </button>
-                  )}
+                  <button
+                    className="runology-cancel-button"
+                    type="button"
+                    onClick={handleCancelEdit}
+                    style={styles.cancelButton}
+                  >
+                    {text.cancelEdit}
+                  </button>
                 </div>
               </form>
 
@@ -4111,7 +4122,7 @@ statSubtext: {
   },
   formActions: {
     display: "grid",
-    gridTemplateColumns: "1fr auto",
+    gridTemplateColumns: "1fr 1fr",
     gap: "10px",
     alignItems: "center",
     marginTop: "10px",
@@ -4139,6 +4150,12 @@ statSubtext: {
     outline: "none",
     color: "#f8fafc",
     boxShadow: "none",
+  },
+  dateInput: {
+    minWidth: 0,
+    textAlign: "left",
+    WebkitAppearance: "none",
+    appearance: "none",
   },
   textarea: {
     width: "100%",
@@ -4312,6 +4329,7 @@ statSubtext: {
     boxShadow: "0 18px 30px rgba(0, 0, 0, 0.22)",
   },
   cancelButton: {
+    width: "100%",
     border: "1px solid rgba(255, 255, 255, 0.07)",
     borderRadius: "16px",
     padding: "15px 18px",
@@ -4572,7 +4590,6 @@ statSubtext: {
     display: "flex",
     gap: "10px",
     flexWrap: "wrap",
-    marginTop: "12px",
     marginBottom: "12px",
   },
   editButton: {
