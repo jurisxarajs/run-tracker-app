@@ -59,6 +59,12 @@ const responsiveCss = `
       font-size: 28px !important;
     }
 
+    .runology-frozen-dashboard {
+      top: 10px !important;
+      margin-bottom: 18px !important;
+      padding-bottom: 10px !important;
+    }
+
     .runology-header {
       padding: 22px !important;
       flex-direction: column !important;
@@ -271,6 +277,7 @@ export default function App() {
   const [runs, setRuns] = useState([]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [activityType, setActivityType] = useState("run");
+  const [activityFilter, setActivityFilter] = useState("all");
   const [distance, setDistance] = useState("");
   const [duration, setDuration] = useState("");
   const [notes, setNotes] = useState("");
@@ -400,6 +407,11 @@ export default function App() {
         confirmDelete: "Vai tiešām dzēst šo ierakstu?",
         runsTitle: "Manas aktivitātes",
         runsText: "Šeit redzi tikai savus ierakstus.",
+        activityFilter: "Filtrs",
+        allActivities: "Visas",
+        exportCsv: "Eksportēt CSV",
+        exportNoRows: "Nav aktivitāšu, ko eksportēt.",
+        noFilteredRuns: "Nav aktivitāšu šajā filtrā.",
         loadingRuns: "Ielādē skrējienus...",
         noRuns: "Vēl nav nevienas aktivitātes. Pievieno pirmo ierakstu.",
         noNotes: "Nav piezīmju.",
@@ -503,6 +515,11 @@ export default function App() {
         confirmDelete: "Are you sure you want to delete this entry?",
         runsTitle: "My activities",
         runsText: "Only your own entries are shown here.",
+        activityFilter: "Filter",
+        allActivities: "All",
+        exportCsv: "Export CSV",
+        exportNoRows: "No activities to export.",
+        noFilteredRuns: "No activities in this filter.",
         loadingRuns: "Loading runs...",
         noRuns: "No activities yet. Add your first entry.",
         noNotes: "No notes.",
@@ -639,6 +656,14 @@ const stats = useMemo(() => {
     gymAverageDuration: getAverageDuration(gymActivities),
   };
 }, [runs]);
+
+const filteredRuns = useMemo(() => {
+  if (activityFilter === "all") {
+    return runs;
+  }
+
+  return runs.filter((run) => (run.type || "run") === activityFilter);
+}, [runs, activityFilter]);
 
   useEffect(() => {
     const hash = typeof window !== "undefined" ? window.location.hash || "" : "";
@@ -923,12 +948,29 @@ async function handleSaveProfile(e) {
     setEditingRunId(null);
   }
 
+  function minutesToDurationInput(value) {
+    const totalSeconds = Math.round(Number(value) * 60);
+
+    if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+      return "";
+    }
+
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0"
+    )}:${String(seconds).padStart(2, "0")}`;
+  }
+
   function handleStartEdit(run) {
     setEditingRunId(run.id);
     setDate(run.date || "");
     setActivityType(run.type || "run");
     setDistance(run.distance != null ? String(run.distance) : "");
-    setDuration(run.duration != null ? String(run.duration) : "");
+    setDuration(run.duration != null ? minutesToDurationInput(run.duration) : "");
     setNotes(run.notes || "");
     setMood(run.mood || "🙂");
     setWeather(run.weather || "☀️");
@@ -1015,6 +1057,7 @@ function formatDurationFromMinutes(value) {
  if (editingRunId) {
   const payload = {
     date,
+    type: activityType,
     distance: String(parsedDistance),
     duration: String(parsedDuration),
     notes: String(notes),
@@ -1136,6 +1179,77 @@ function formatDurationFromMinutes(value) {
     unit === "miles" ? "mi" : "km"
   }`;
 }
+function getActivityTypeLabel(typeValue) {
+  const normalizedType = typeValue || "run";
+
+  if (normalizedType === "gym") return text.gymType;
+  if (normalizedType === "hike") return text.hikeType;
+  return text.runType;
+}
+
+function csvEscape(value) {
+  if (value === null || value === undefined) return '""';
+
+  const normalized = String(value).replace(/\r?\n|\r/g, " ").trim();
+  return `"${normalized.replace(/"/g, '""')}"`;
+}
+
+function handleExportCsv() {
+  if (filteredRuns.length === 0) {
+    setError(text.exportNoRows);
+    return;
+  }
+
+  const headers = [
+    "date",
+    "activity_type",
+    "distance_km",
+    "duration_minutes",
+    "duration_formatted",
+    "pace",
+    "mood",
+    "weather",
+    "notes",
+  ];
+
+  const rows = filteredRuns.map((run) => {
+    const durationMinutes = run.duration ?? "";
+    const paceValue = (run.type || "run") === "gym" ? "" : formatPace(run.distance, run.duration);
+
+    return [
+      run.date || "",
+      getActivityTypeLabel(run.type),
+      run.distance ?? "",
+      durationMinutes,
+      formatDurationFromMinutes(run.duration),
+      paceValue,
+      run.mood || "",
+      run.weather || "",
+      run.notes || "",
+    ];
+  });
+
+  const csvContent = [headers, ...rows]
+    .map((row) => row.map(csvEscape).join(","))
+    .join("\n");
+
+  const blob = new Blob([`\uFEFF${csvContent}`], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const today = new Date().toISOString().slice(0, 10);
+  const filterSuffix = activityFilter === "all" ? "all" : activityFilter;
+
+  link.href = url;
+  link.download = `runology-activities-${filterSuffix}-${today}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function convertDistance(value) {
   const num = parseFloat(String(value).replace(",", "."));
   if (!num) return value;
@@ -1546,6 +1660,7 @@ function getDistanceUnitLabel() {
   return (
     <div className="runology-page" style={styles.page}>
       <div style={styles.appShell}>
+        <div className="runology-frozen-dashboard" style={styles.frozenDashboard}>
         <header className="runology-header" style={styles.header}>
           <div style={styles.headerLeft}>
             <button
@@ -1635,6 +1750,8 @@ function getDistanceUnitLabel() {
               {language === "lv" ? "Vidēji" : "Average"} {stats.gymAverageDuration}
             </div>
           </div>
+        </div>
+
         </div>
 
         {activeView === "runs" ? (
@@ -1772,13 +1889,63 @@ function getDistanceUnitLabel() {
                 <p style={styles.sectionText}>{text.runsText}</p>
               </div>
 
+              <div style={styles.activityFilterWrap}>
+                <div style={styles.activityFilterTopRow}>
+                  <span style={styles.infoLabel}>{text.activityFilter}</span>
+                  <button
+                    type="button"
+                    onClick={handleExportCsv}
+                    disabled={filteredRuns.length === 0}
+                    style={
+                      filteredRuns.length === 0
+                        ? styles.exportCsvButtonDisabled
+                        : styles.exportCsvButton
+                    }
+                  >
+                    {text.exportCsv}
+                  </button>
+                </div>
+                <div style={styles.activityFilterGroup}>
+                  <button
+                    type="button"
+                    onClick={() => setActivityFilter("all")}
+                    style={activityFilter === "all" ? styles.activityFilterButtonActive : styles.activityFilterButton}
+                  >
+                    {text.allActivities}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityFilter("run")}
+                    style={activityFilter === "run" ? styles.activityFilterButtonActive : styles.activityFilterButton}
+                  >
+                    🏃 {text.runType}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityFilter("gym")}
+                    style={activityFilter === "gym" ? styles.activityFilterButtonActive : styles.activityFilterButton}
+                  >
+                    🏋️ {text.gymType}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityFilter("hike")}
+                    style={activityFilter === "hike" ? styles.activityFilterButtonActive : styles.activityFilterButton}
+                  >
+                    🥾 {text.hikeType}
+                  </button>
+                </div>
+              </div>
+
               {runsLoading ? (
                 <div style={styles.emptyState}>{text.loadingRuns}</div>
               ) : runs.length === 0 ? (
                 <div style={styles.emptyState}>{text.noRuns}</div>
+              ) : filteredRuns.length === 0 ? (
+                <div style={styles.emptyState}>{text.noFilteredRuns}</div>
               ) : (
                 <div style={styles.runList}>
-                  {runs.map((run) => {
+                  {filteredRuns.map((run) => {
                     const runType = run.type || "run";
 
                     return (
@@ -2156,6 +2323,17 @@ const styles = {
     maxWidth: "1260px",
     margin: "0 auto",
   },
+  frozenDashboard: {
+    position: "sticky",
+    top: "16px",
+    zIndex: 50,
+    background: "rgba(17, 17, 17, 0.92)",
+    backdropFilter: "blur(18px)",
+    WebkitBackdropFilter: "blur(18px)",
+    paddingBottom: "12px",
+    marginBottom: "12px",
+    borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
+  },
   header: {
     background: "#1b1b1b",
     borderRadius: "24px",
@@ -2166,7 +2344,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: "18px",
-    marginBottom: "24px",
+    marginBottom: "16px",
     flexWrap: "wrap",
   },
   headerLeft: {
@@ -2281,7 +2459,7 @@ profileSubheading: {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: "16px",
-  marginBottom: "24px",
+  marginBottom: "0",
 },
 
 statCard: {
@@ -2556,6 +2734,67 @@ statSubtext: {
     color: "#c0b5a4",
     fontSize: "15px",
     textAlign: "center",
+  },
+  activityFilterWrap: {
+    display: "grid",
+    gap: "10px",
+    marginBottom: "18px",
+  },
+  activityFilterTopRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+  exportCsvButton: {
+    border: "1px solid #536557",
+    borderRadius: "14px",
+    padding: "10px 13px",
+    fontSize: "14px",
+    fontWeight: "800",
+    cursor: "pointer",
+    color: "#f6efe5",
+    background: "#2a322c",
+  },
+  exportCsvButtonDisabled: {
+    border: "1px solid #343434",
+    borderRadius: "14px",
+    padding: "10px 13px",
+    fontSize: "14px",
+    fontWeight: "800",
+    cursor: "not-allowed",
+    color: "#6f6659",
+    background: "#242424",
+  },
+  activityFilterGroup: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    padding: "6px",
+    borderRadius: "18px",
+    background: "#242424",
+    border: "1px solid #343434",
+  },
+  activityFilterButton: {
+    border: "1px solid transparent",
+    borderRadius: "14px",
+    padding: "10px 13px",
+    fontSize: "14px",
+    fontWeight: "800",
+    cursor: "pointer",
+    color: "#b8aa95",
+    background: "transparent",
+  },
+  activityFilterButtonActive: {
+    border: "1px solid #536557",
+    borderRadius: "14px",
+    padding: "10px 13px",
+    fontSize: "14px",
+    fontWeight: "800",
+    cursor: "pointer",
+    color: "#f6efe5",
+    background: "#2a322c",
   },
   runList: {
     display: "grid",
