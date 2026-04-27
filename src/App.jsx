@@ -4633,6 +4633,7 @@ statSubtext: {
     display: "flex",
     gap: "10px",
     flexWrap: "wrap",
+    marginTop: "12px",
     marginBottom: "12px",
   },
   editButton: {
