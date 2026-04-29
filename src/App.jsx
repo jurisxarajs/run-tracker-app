@@ -248,8 +248,7 @@ const responsiveCss = `
     }
 
     .runology-insights-grid,
-    .runology-insight-recommendation-grid,
-    .runology-insight-filter-grid {
+    .runology-insight-recommendation-grid {
       grid-template-columns: 1fr !important;
     }
 
@@ -527,8 +526,6 @@ export default function App() {
   const [expandedRunId, setExpandedRunId] = useState(null);
   const [showInsights, setShowInsights] = useState(false);
   const [insightActivityType, setInsightActivityType] = useState("all");
-  const [insightDateRange, setInsightDateRange] = useState("90");
-  const [insightEffortFilter, setInsightEffortFilter] = useState("all");
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
@@ -550,6 +547,10 @@ export default function App() {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackStatus, setFeedbackStatus] = useState("");
   const [feedbackError, setFeedbackError] = useState("");
+  const [shareActivity, setShareActivity] = useState(null);
+  const [shareComment, setShareComment] = useState("");
+  const [shareIncludeComment, setShareIncludeComment] = useState(true);
+  const [shareLoading, setShareLoading] = useState(false);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -683,7 +684,8 @@ export default function App() {
         noRuns: "Vēl nav nevienas aktivitātes. Pievieno pirmo ierakstu.",
         noNotes: "Nav piezīmju.",
         mustLogin: "Tev vispirms jāielogojas.",
-        invalidPace: "Ievadi distance un ilgumu, lai redzētu tempu.",
+        invalidPace: "Ievadi distanci un ilgumu, lai redzētu tempu.",
+        invalidGymDuration: "Ievadi zāles treniņa ilgumu.",
         errorPrefix: "Kļūda",
         distanceLabel: "Distance",
         durationLabel: "Ilgums",
@@ -718,20 +720,6 @@ export default function App() {
         insightsSubtitle: "Īss pārskats no taviem aktivitāšu datiem.",
         insightSportFilter: "Sporta veids",
         insightAllSports: "Skrējieni + pārgājieni",
-        insightDateFilter: "Periods",
-        insightEffortFilter: "Sajūta",
-        insightLast30: "Pēdējās 30 dienas",
-        insightLast90: "Pēdējās 90 dienas",
-        insightThisYear: "Šis gads",
-        insightAllTime: "Viss laiks",
-        insightAllEfforts: "Visas sajūtas",
-        insightEasyEfforts: "Vieglas / labas",
-        insightHardEfforts: "Grūtas",
-        insightsWeeklyLoad: "Nedēļas slodze",
-        insightsConsistency: "Konsekvence",
-        insightsLongest: "Garākais",
-        insightsFastest: "Ātrākais",
-        insightsRecentChange: "7 dienas pret iepriekšējām 7",
         insightsNotEnough: "Pievieno vismaz 2 aktivitātes ar distanci, lai redzētu jēgpilnus insights.",
         insightsBasedOn: "Balstīts uz",
         insightsActivities: "aktivitātēm",
@@ -877,6 +865,7 @@ export default function App() {
         noNotes: "No notes.",
         mustLogin: "You must sign in first.",
         invalidPace: "Enter distance and duration to see pace.",
+        invalidGymDuration: "Enter gym workout duration.",
         errorPrefix: "Error",
         distanceLabel: "Distance",
         durationLabel: "Duration",
@@ -911,20 +900,6 @@ export default function App() {
         insightsSubtitle: "A short readout from your activity data.",
         insightSportFilter: "Sport",
         insightAllSports: "Runs + hikes",
-        insightDateFilter: "Period",
-        insightEffortFilter: "Effort",
-        insightLast30: "Last 30 days",
-        insightLast90: "Last 90 days",
-        insightThisYear: "This year",
-        insightAllTime: "All time",
-        insightAllEfforts: "All efforts",
-        insightEasyEfforts: "Easy / good",
-        insightHardEfforts: "Hard",
-        insightsWeeklyLoad: "Weekly load",
-        insightsConsistency: "Consistency",
-        insightsLongest: "Longest",
-        insightsFastest: "Fastest",
-        insightsRecentChange: "7 days vs previous 7",
         insightsNotEnough: "Add at least 2 distance-based activities to see useful insights.",
         insightsBasedOn: "Based on",
         insightsActivities: "activities",
@@ -1130,82 +1105,21 @@ const chartData = useMemo(() => {
 
 const insightData = useMemo(() => {
   const selectedType = insightActivityType;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  function parseActivityDate(value) {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  function getInsightRangeStart() {
-    if (insightDateRange === "all") return null;
-    if (insightDateRange === "year") return new Date(today.getFullYear(), 0, 1);
-    const days = Number(insightDateRange || 90);
-    const start = new Date(today);
-    start.setDate(start.getDate() - days + 1);
-    return start;
-  }
-
-  function matchesInsightEffort(activity) {
-    if (insightEffortFilter === "all") return true;
-    const easyMoods = ["😄", "🙂"];
-    const hardMoods = ["😓", "🥵"];
-    if (insightEffortFilter === "easy") return easyMoods.includes(activity.mood);
-    if (insightEffortFilter === "hard") return hardMoods.includes(activity.mood);
-    return true;
-  }
-
-  const insightRangeStart = getInsightRangeStart();
 
   const sourceActivities = runs.filter((activity) => {
     const type = activity.type || "run";
 
     if (selectedType === "all") {
-      if (type !== "run" && type !== "hike") return false;
-    } else if (type !== selectedType) {
-      return false;
+      return type === "run" || type === "hike";
     }
 
-    const activityDate = parseActivityDate(activity.date);
-    if (!activityDate) return false;
-    if (insightRangeStart && activityDate < insightRangeStart) return false;
-    if (activityDate > new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59)) return false;
-
-    return matchesInsightEffort(activity);
+    return type === selectedType;
   });
 
   const isGymView = selectedType === "gym";
 
   function formatKm(value) {
     return `${value.toFixed(1)} km`;
-  }
-
-  function formatPercentChange(current, previous) {
-    if (!previous || previous <= 0) return current > 0 ? "+100%" : "0%";
-    const change = ((current - previous) / previous) * 100;
-    const prefix = change >= 0 ? "+" : "";
-    return `${prefix}${Math.round(change)}%`;
-  }
-
-  function countActiveWeeks(items) {
-    const weeks = new Set();
-    items.forEach((item) => {
-      const dateValue = parseActivityDate(item.date);
-      if (!dateValue) return;
-      const monday = new Date(dateValue);
-      const day = monday.getDay() || 7;
-      monday.setDate(monday.getDate() - day + 1);
-      weeks.add(monday.toISOString().slice(0, 10));
-    });
-    return weeks.size;
-  }
-
-  function getDaysBetween(firstDate, lastDate) {
-    const first = parseActivityDate(firstDate);
-    const last = parseActivityDate(lastDate);
-    if (!first || !last) return 1;
-    return Math.max(1, Math.round((last - first) / (1000 * 60 * 60 * 24)) + 1);
   }
 
   function formatSignedPace(value) {
@@ -1406,25 +1320,6 @@ const insightData = useMemo(() => {
   const lastThreePace = lastThreeDuration / lastThreeDistance;
   const longest = distanceActivities.reduce((best, item) => item.distanceValue > best.distanceValue ? item : best, distanceActivities[0]);
   const fastest = distanceActivities.reduce((best, item) => item.paceValue < best.paceValue ? item : best, distanceActivities[0]);
-  const activeWeeks = countActiveWeeks(distanceActivities);
-  const sessionsPerWeek = activeWeeks ? count / activeWeeks : count;
-  const last7Start = new Date(today);
-  last7Start.setDate(last7Start.getDate() - 6);
-  const previous7Start = new Date(today);
-  previous7Start.setDate(previous7Start.getDate() - 13);
-  const previous7End = new Date(today);
-  previous7End.setDate(previous7End.getDate() - 7);
-  const last7Distance = distanceActivities
-    .filter((item) => parseActivityDate(item.date) >= last7Start)
-    .reduce((sum, item) => sum + item.distanceValue, 0);
-  const previous7Distance = distanceActivities
-    .filter((item) => {
-      const itemDate = parseActivityDate(item.date);
-      return itemDate >= previous7Start && itemDate <= previous7End;
-    })
-    .reduce((sum, item) => sum + item.distanceValue, 0);
-  const spanDays = getDaysBetween(distanceActivities[0].date, latest.date);
-  const kmPerWeek = totalDistance / Math.max(1, spanDays / 7);
 
   function averageByField(fieldName, options, minItems = 2) {
     const groups = new Map();
@@ -1496,18 +1391,10 @@ const insightData = useMemo(() => {
         : `Your latest activity was ${formatPaceNumber(trendDiff)} / km slower than your previous average.`;
 
   const consistencyText = language === "lv"
-    ? `${sessionsPerWeek.toFixed(1)} aktivitātes nedēļā šajā periodā. Vidēji viena aktivitāte ir ${formatKm(avgDistance)}.`
-    : `${sessionsPerWeek.toFixed(1)} activities per week in this period. Average distance is ${formatKm(avgDistance)}.`;
+    ? `Tev ir ${count} aktivitātes ar distanci. Vidēji viena aktivitāte ir ${formatKm(avgDistance)}.`
+    : `You have ${count} distance-based activities. Average distance is ${formatKm(avgDistance)}.`;
 
   const recommendations = [
-    last7Distance > previous7Distance * 1.25 && previous7Distance > 0
-      ? {
-          title: language === "lv" ? "Slodzes kontrole" : "Load control",
-          body: language === "lv"
-            ? `Pēdējās 7 dienās distance pieauga par ${formatPercentChange(last7Distance, previous7Distance)}. Nākamajam treniņam izvēlies vieglu tempu vai īsāku distanci.`
-            : `Distance increased by ${formatPercentChange(last7Distance, previous7Distance)} over the last 7 days. Make the next session easy or shorter.`,
-        }
-      : null,
     bestPreSession && bestPreSession.deltaFromAverage < -0.05
       ? {
           title: language === "lv" ? "Ko atkārtot" : "Repeat this",
@@ -1542,18 +1429,11 @@ const insightData = useMemo(() => {
 
   const patternLines = [
     language === "lv" ? `Pēdējo 3 aktivitāšu temps: ${formatPaceNumber(lastThreePace)} / km (${formatSignedPace(lastThreePace - avgPace)} pret kopējo vidējo).` : `Last 3 activity pace: ${formatPaceNumber(lastThreePace)} / km (${formatSignedPace(lastThreePace - avgPace)} vs total average).`,
-    language === "lv" ? `Pēdējās 7 dienas: ${formatKm(last7Distance)} (${formatPercentChange(last7Distance, previous7Distance)} pret iepriekšējām 7 dienām).` : `Last 7 days: ${formatKm(last7Distance)} (${formatPercentChange(last7Distance, previous7Distance)} vs previous 7 days).`,
     language === "lv" ? `Ātrākā aktivitāte: ${formatPaceNumber(fastest.paceValue)} / km pie ${formatKm(fastest.distanceValue)}.` : `Fastest activity: ${formatPaceNumber(fastest.paceValue)} / km over ${formatKm(fastest.distanceValue)}.`,
     language === "lv" ? `Garākā aktivitāte: ${formatKm(longest.distanceValue)} ar tempu ${formatPaceNumber(longest.paceValue)} / km.` : `Longest activity: ${formatKm(longest.distanceValue)} at ${formatPaceNumber(longest.paceValue)} / km.`,
-    language === "lv" ? `Vidējā nedēļas slodze šajā periodā: ${formatKm(kmPerWeek)} / nedēļā.` : `Average weekly load in this period: ${formatKm(kmPerWeek)} / week.`,
   ];
 
   const riskLines = [
-    last7Distance > previous7Distance * 1.3 && previous7Distance > 0
-      ? language === "lv"
-        ? "Pēdējo 7 dienu distance ir augusi par vairāk nekā 30%. Tas ir noguruma / traumu riska signāls."
-        : "The last 7 days are up by more than 30%. That is a fatigue / injury-risk signal."
-      : "",
     worstSleep && worstSleep.deltaFromAverage > 0.05
       ? language === "lv"
         ? `Uzmanies ar “${worstSleep.label}” miegu: šajā grupā temps ir ${formatPaceNumber(worstSleep.deltaFromAverage)} / km lēnāks par vidējo.`
@@ -1584,11 +1464,8 @@ const insightData = useMemo(() => {
     isGymView,
     cards: [
       { title: text.insightsAvgPace, value: `${formatPaceNumber(avgPace)} / km`, detail: `${text.insightsTotalDistance}: ${formatKm(totalDistance)}` },
-      { title: text.insightsRecentChange, value: formatPercentChange(last7Distance, previous7Distance), detail: `${formatKm(last7Distance)} vs ${formatKm(previous7Distance)}` },
-      { title: text.insightsWeeklyLoad, value: `${formatKm(kmPerWeek)} / week`, detail: consistencyText },
-      { title: text.insightsFastest, value: `${formatPaceNumber(fastest.paceValue)} / km`, detail: `${formatKm(fastest.distanceValue)} · ${formatDate(fastest.date)}` },
-      { title: text.insightsLongest, value: formatKm(longest.distanceValue), detail: `${formatPaceNumber(longest.paceValue)} / km · ${formatDate(longest.date)}` },
       { title: text.insightsTrend, value: formatPaceNumber(latest.paceValue) + " / km", detail: trendText },
+      { title: text.insightsAvgDistance, value: formatKm(avgDistance), detail: consistencyText },
     ],
     contextLines,
     recommendations,
@@ -1597,7 +1474,7 @@ const insightData = useMemo(() => {
     experimentLines,
     confidenceText: getConfidence(count),
   };
-}, [runs, language, preSessionOptions, sleepOptions, duringSessionOptions, text, insightActivityType, insightDateRange, insightEffortFilter]);
+}, [runs, language, preSessionOptions, sleepOptions, duringSessionOptions, text, insightActivityType]);
 const monthlyIdentity = useMemo(() => {
   const now = new Date();
   const month = now.getMonth();
@@ -1818,7 +1695,6 @@ const monthlyIdentity = useMemo(() => {
       .from("runs")
       .select("*")
       .eq("user_id", session.user.id)
-      .order("date", { ascending: false })
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -2258,14 +2134,12 @@ function formatDurationFromMinutes(value) {
 
      const parsedDuration = durationPartsToMinutes(durationHours, durationMinutes, durationSeconds);   
 
-    if (
-      Number.isNaN(parsedDuration) ||
-      parsedDuration <= 0 ||
+    if (Number.isNaN(parsedDuration) || parsedDuration <= 0) {
+      setError(activityType === "gym" ? text.invalidGymDuration : text.invalidPace);
+      return;
+    }
 
-      
-      (activityType !== "gym" &&
-        (Number.isNaN(parsedDistance) || parsedDistance <= 0))
-    ) {
+    if (activityType !== "gym" && (Number.isNaN(parsedDistance) || parsedDistance <= 0)) {
       setError(text.invalidPace);
       return;
     }
@@ -2312,44 +2186,26 @@ function formatDurationFromMinutes(value) {
   return;
 }
 
-    let saveResponse;
+    const payload = {
+      date,
+      type: activityType,
+      distance: activityType === "gym" && (distance === "" || Number.isNaN(parsedDistance)) ? 0 : parsedDistance,
+      duration: parsedDuration,
+      notes: String(notes),
+      mood,
+      weather,
+      pre_session_state: preSessionState || null,
+      sleep_quality: sleepQuality || null,
+      during_session_fuel: duringSessionFuel.join(","),
+      user_id: session.user.id,
+    };
 
-    try {
-      saveResponse = await fetch(
-        "https://pmfwfbgdpfvdjdrcpqqm.supabase.co/functions/v1/save-activity",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            date,
-            activity_type: activityType,
-            distance: parsedDistance,
-            duration_hours: String(durationHours || "0"),
-            duration_minutes: String(durationMinutes || "0"),
-            duration_seconds: String(durationSeconds || "0"),
-            duration_minutes_total: parsedDuration,
-            notes: String(notes),
-            mood,
-            weather,
-            pre_session_state: preSessionState || null,
-            sleep_quality: sleepQuality || null,
-            during_session_fuel: duringSessionFuel.join(","),
-            user_id: session.user.id,
-          }),
-        }
-      );
-    } catch (err) {
-      setError(language === "lv" ? "Neizdevās saglabāt aktivitāti." : "Could not save activity.");
-      setSaving(false);
-      return;
-    }
+    const { error: insertError } = await supabase
+      .from("runs")
+      .insert(payload);
 
-    const saveResult = await saveResponse.json().catch(() => null);
-
-    if (!saveResponse.ok || saveResult?.error) {
-      setError(saveResult?.error || (language === "lv" ? "Neizdevās saglabāt aktivitāti." : "Could not save activity."));
+    if (insertError) {
+      setError(formatSupabaseError(insertError.message, language));
       setSaving(false);
       return;
     }
@@ -2670,6 +2526,271 @@ function wrapCanvasText(ctx, textValue, x, y, maxWidth, lineHeight, maxLines = 1
   return currentY;
 }
 
+function openActivityShareModal(activity) {
+  setError("");
+  setMessage("");
+  setShareActivity(activity);
+  setShareComment(activity?.notes || "");
+  setShareIncludeComment(Boolean(activity?.notes));
+}
+
+function closeActivityShareModal() {
+  if (shareLoading) return;
+  setShareActivity(null);
+  setShareComment("");
+  setShareIncludeComment(true);
+}
+
+function getShareActivityName(activity) {
+  const typeValue = activity?.type || "run";
+  if (typeValue === "gym") return language === "lv" ? "Spēka treniņš" : "Strength session";
+  if (typeValue === "hike") return language === "lv" ? "Pārgājiens" : "Hike";
+  return language === "lv" ? "Skrējiens" : "Run";
+}
+
+function getShareStats(activity) {
+  const typeValue = activity?.type || "run";
+  const distanceText = typeValue === "gym" ? "—" : `${convertDistance(activity?.distance)} ${getDistanceUnitLabel()}`;
+  const durationText = formatDurationFromMinutes(activity?.duration);
+  const paceText = typeValue === "gym" ? "—" : formatPace(activity?.distance, activity?.duration);
+  return { distanceText, durationText, paceText, typeValue };
+}
+
+async function canvasToPngFile(canvas, fileName) {
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) return null;
+  return new File([blob], fileName, { type: "image/png" });
+}
+
+function downloadFile(file) {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function drawRunologyShareBackground(ctx, width, height) {
+  const bg = ctx.createLinearGradient(0, 0, width, height);
+  bg.addColorStop(0, "#111111");
+  bg.addColorStop(0.45, "#181818");
+  bg.addColorStop(1, "#071307");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = "rgba(138, 208, 141, 0.17)";
+  ctx.lineWidth = 3;
+  for (let i = 0; i < 9; i += 1) {
+    ctx.beginPath();
+    ctx.arc(1040, 160, 130 + i * 58, Math.PI * 0.55, Math.PI * 1.75);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "rgba(138, 208, 141, 0.12)";
+  ctx.beginPath();
+  ctx.arc(120, 1760, 300, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255, 255, 255, 0.055)";
+  roundRect(ctx, 72, 96, width - 144, height - 192, 56);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.11)";
+  ctx.lineWidth = 2;
+  roundRect(ctx, 72, 96, width - 144, height - 192, 56);
+  ctx.stroke();
+}
+
+function drawRunologyShareBrand(ctx) {
+  ctx.fillStyle = "#8AD08D";
+  ctx.font = "800 58px Arial, sans-serif";
+  ctx.fillText("RUNOLOGY", 128, 210);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.62)";
+  ctx.font = "500 28px Arial, sans-serif";
+  ctx.fillText("UNDERSTAND YOUR RUN", 132, 258);
+}
+
+function createActivityStatsCanvas(activity, commentText, useInlineComment) {
+  const canvas = document.createElement("canvas");
+  const width = 1080;
+  const height = 1920;
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+  const { distanceText, durationText, paceText, typeValue } = getShareStats(activity);
+  const activityName = getShareActivityName(activity);
+  const activityDate = formatDate(activity?.date).toUpperCase();
+  const moodText = activity?.mood || "";
+  const weatherText = activity?.weather || "";
+  drawRunologyShareBackground(ctx, width, height);
+  drawRunologyShareBrand(ctx);
+  if (typeValue === "gym") {
+    ctx.fillStyle = "rgba(138, 208, 141, 0.16)";
+    roundRect(ctx, 128, 330, 824, 96, 32);
+    ctx.fill();
+    ctx.fillStyle = "#D7E3D8";
+    ctx.font = "800 31px Arial, sans-serif";
+    wrapCanvasText(ctx, `${activityName.toUpperCase()} · ${activityDate}`, 168, 390, 744, 38, 1);
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "900 132px Arial, sans-serif";
+    ctx.fillText(durationText, 128, 650);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.58)";
+    ctx.font = "600 34px Arial, sans-serif";
+    ctx.fillText(language === "lv" ? "KOPĀ" : "TOTAL TIME", 134, 710);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.58)";
+    ctx.font = "700 32px Arial, sans-serif";
+    ctx.fillText(language === "lv" ? "SAJŪTA" : "FEEL GOOD", 128, 910);
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "700 46px Arial, sans-serif";
+    const gymMoodLine = [moodText, weatherText].filter(Boolean).join("   ") || "🙂";
+    ctx.fillText(gymMoodLine, 128, 980);
+
+    if (commentText) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.font = "600 46px Arial, sans-serif";
+      wrapCanvasText(ctx, `“${commentText}”`, 128, 1210, 824, 64, 7);
+    }
+  } else {
+    ctx.fillStyle = "rgba(138, 208, 141, 0.16)";
+    roundRect(ctx, 128, 330, 824, 96, 32);
+    ctx.fill();
+    ctx.fillStyle = "#D7E3D8";
+    ctx.font = "800 31px Arial, sans-serif";
+    wrapCanvasText(ctx, `${activityName.toUpperCase()} · ${activityDate}`, 168, 390, 744, 38, 1);
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "900 132px Arial, sans-serif";
+    ctx.fillText(distanceText, 128, 650);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.58)";
+    ctx.font = "600 34px Arial, sans-serif";
+    ctx.fillText(language === "lv" ? "DISTANCE" : "DISTANCE", 134, 710);
+
+    const statY = 900;
+    const statW = 390;
+    const gap = 44;
+    const statsToDraw = [
+      { label: language === "lv" ? "LAIKS" : "TIME", value: durationText },
+      { label: language === "lv" ? "TEMPS" : "PACE", value: paceText.replace(" / ", "/") },
+    ];
+    statsToDraw.forEach((stat, index) => {
+      const x = 128 + index * (statW + gap);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.07)";
+      roundRect(ctx, x, statY, statW, 210, 34);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+      ctx.font = "700 27px Arial, sans-serif";
+      ctx.fillText(stat.label, x + 34, statY + 58);
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "800 45px Arial, sans-serif";
+      wrapCanvasText(ctx, stat.value, x + 34, statY + 132, statW - 68, 50, 2);
+    });
+    ctx.fillStyle = "rgba(138, 208, 141, 0.14)";
+    roundRect(ctx, 128, 1190, 824, 120, 34);
+    ctx.fill();
+    ctx.fillStyle = "#D7E3D8";
+    ctx.font = "600 34px Arial, sans-serif";
+    const metaLine = [moodText, weatherText].filter(Boolean).join("   ") || (language === "lv" ? "Aktivitāte saglabāta" : "Activity saved");
+    ctx.fillText(metaLine, 168, 1265);
+    if (useInlineComment && commentText) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.86)";
+      ctx.font = "600 42px Arial, sans-serif";
+      wrapCanvasText(ctx, `“${commentText}”`, 128, 1440, 824, 58, 4);
+    } else {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.52)";
+      ctx.font = "500 34px Arial, sans-serif";
+      ctx.fillText("Tracked with Runology", 128, 1480);
+    }
+  }
+  ctx.fillStyle = "#8AD08D";
+  ctx.font = "800 38px Arial, sans-serif";
+  ctx.fillText("runology.fit", 128, 1728);
+  ctx.strokeStyle = "rgba(138, 208, 141, 0.7)";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(128, 1770);
+  ctx.lineTo(420, 1770);
+  ctx.stroke();
+  return canvas;
+}
+
+function createActivityCommentCanvas(activity, commentText) {
+  const canvas = document.createElement("canvas");
+  const width = 1080;
+  const height = 1920;
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+  drawRunologyShareBackground(ctx, width, height);
+  drawRunologyShareBrand(ctx);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.56)";
+  ctx.font = "700 30px Arial, sans-serif";
+  ctx.fillText(`${getShareActivityName(activity).toUpperCase()} · ${formatDate(activity?.date).toUpperCase()}`, 128, 430);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "800 70px Arial, sans-serif";
+  ctx.fillText(language === "lv" ? "Mans treniņa stāsts" : "My workout note", 128, 560);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+  ctx.font = "600 52px Arial, sans-serif";
+  wrapCanvasText(ctx, `“${commentText}”`, 128, 760, 824, 72, 12);
+  ctx.fillStyle = "rgba(138, 208, 141, 0.16)";
+  roundRect(ctx, 128, 1480, 824, 150, 36);
+  ctx.fill();
+  ctx.fillStyle = "#D7E3D8";
+  ctx.font = "700 34px Arial, sans-serif";
+  ctx.fillText(language === "lv" ? "Mazās detaļas veido progresu." : "Small details build progress.", 168, 1568);
+  ctx.fillStyle = "#8AD08D";
+  ctx.font = "800 38px Arial, sans-serif";
+  ctx.fillText("runology.fit", 128, 1728);
+  return canvas;
+}
+
+async function handleShareActivityImage() {
+  if (!shareActivity) return;
+  setShareLoading(true);
+  setError("");
+  setMessage("");
+  try {
+    const cleanComment = shareIncludeComment ? shareComment.trim() : "";
+    const isGymShare = (shareActivity?.type || "run") === "gym";
+    const shouldUseSecondSlide = !isGymShare && cleanComment.length > 110;
+    const statsCanvas = createActivityStatsCanvas(shareActivity, cleanComment, Boolean(cleanComment && (isGymShare || !shouldUseSecondSlide)));
+    const statsFile = await canvasToPngFile(statsCanvas, "runology-activity-stats.png");
+    const files = statsFile ? [statsFile] : [];
+    if (cleanComment && shouldUseSecondSlide) {
+      const commentCanvas = createActivityCommentCanvas(shareActivity, cleanComment);
+      const commentFile = await canvasToPngFile(commentCanvas, "runology-activity-note.png");
+      if (commentFile) files.push(commentFile);
+    }
+    if (files.length === 0) return;
+    if (navigator.canShare?.({ files }) && navigator.share) {
+      await navigator.share({
+        title: "Runology activity",
+        text: language === "lv" ? "Mana aktivitāte no Runology" : "My Runology activity",
+        files,
+      });
+      setMessage(language === "lv" ? "Share bilde sagatavota." : "Share image prepared.");
+      closeActivityShareModal();
+      return;
+    }
+    files.forEach(downloadFile);
+    setMessage(files.length > 1
+      ? (language === "lv" ? "Lejupielādētas 2 Instagram bildes." : "Downloaded 2 Instagram images.")
+      : (language === "lv" ? "Instagram bilde lejupielādēta." : "Instagram image downloaded."));
+    closeActivityShareModal();
+  } catch (shareError) {
+    if (shareError?.name !== "AbortError") {
+      setError(shareError.message || String(shareError));
+    }
+  } finally {
+    setShareLoading(false);
+  }
+}
+
 function handleExportCsv() {
   if (filteredRuns.length === 0) {
     setError(text.exportNoRows);
@@ -2877,56 +2998,21 @@ function renderInsightsPanel() {
         : text.gymType;
 
   const insightFilterControl = (
-    <div style={styles.insightFilterGrid}>
-      <div style={styles.insightFilterRow}>
-        <label style={styles.insightFilterLabel} htmlFor="insight-activity-type">
-          {text.insightSportFilter}
-        </label>
-        <select
-          id="insight-activity-type"
-          value={insightActivityType}
-          onChange={(e) => setInsightActivityType(e.target.value)}
-          style={styles.insightSelect}
-        >
-          <option value="all">{text.insightAllSports}</option>
-          <option value="run">🏃 {text.runType}</option>
-          <option value="hike">🥾 {text.hikeType}</option>
-          <option value="gym">🏋️ {text.gymType}</option>
-        </select>
-      </div>
-
-      <div style={styles.insightFilterRow}>
-        <label style={styles.insightFilterLabel} htmlFor="insight-date-range">
-          {text.insightDateFilter}
-        </label>
-        <select
-          id="insight-date-range"
-          value={insightDateRange}
-          onChange={(e) => setInsightDateRange(e.target.value)}
-          style={styles.insightSelect}
-        >
-          <option value="30">{text.insightLast30}</option>
-          <option value="90">{text.insightLast90}</option>
-          <option value="year">{text.insightThisYear}</option>
-          <option value="all">{text.insightAllTime}</option>
-        </select>
-      </div>
-
-      <div style={styles.insightFilterRow}>
-        <label style={styles.insightFilterLabel} htmlFor="insight-effort-filter">
-          {text.insightEffortFilter}
-        </label>
-        <select
-          id="insight-effort-filter"
-          value={insightEffortFilter}
-          onChange={(e) => setInsightEffortFilter(e.target.value)}
-          style={styles.insightSelect}
-        >
-          <option value="all">{text.insightAllEfforts}</option>
-          <option value="easy">{text.insightEasyEfforts}</option>
-          <option value="hard">{text.insightHardEfforts}</option>
-        </select>
-      </div>
+    <div style={styles.insightFilterRow}>
+      <label style={styles.insightFilterLabel} htmlFor="insight-activity-type">
+        {text.insightSportFilter}
+      </label>
+      <select
+        id="insight-activity-type"
+        value={insightActivityType}
+        onChange={(e) => setInsightActivityType(e.target.value)}
+        style={styles.insightSelect}
+      >
+        <option value="all">{text.insightAllSports}</option>
+        <option value="run">🏃 {text.runType}</option>
+        <option value="hike">🥾 {text.hikeType}</option>
+        <option value="gym">🏋️ {text.gymType}</option>
+      </select>
     </div>
   );
 
@@ -3648,6 +3734,93 @@ function renderInsightsPanel() {
           </div>
         )}
 
+        {shareActivity && (
+          <div className="runology-modal-backdrop" style={styles.modalBackdrop}>
+            <div style={styles.feedbackModalCard}>
+              <button
+                type="button"
+                onClick={closeActivityShareModal}
+                disabled={shareLoading}
+                style={styles.modalCloseButton}
+                aria-label={language === "lv" ? "Aizvērt" : "Close"}
+              >
+                ×
+              </button>
+
+              <div style={styles.sectionHeader}>
+                <h2 className="runology-section-title" style={styles.sectionTitle}>
+                  {language === "lv" ? "Share uz Instagram" : "Share to Instagram"}
+                </h2>
+                <p style={styles.sectionText}>
+                  {language === "lv"
+                    ? "Izveidosim premium Story bildi. Ja komentārs būs garāks, Runology automātiski sagatavos otro slaidu."
+                    : "Create a premium Story image. If the comment is longer, Runology automatically prepares a second slide."}
+                </p>
+              </div>
+
+              <div style={styles.sharePreviewCard}>
+                <div style={styles.sharePreviewBrand}>RUNOLOGY</div>
+                <div style={styles.sharePreviewBig}>
+                  {getShareStats(shareActivity).typeValue === "gym"
+                    ? formatDurationFromMinutes(shareActivity.duration)
+                    : `${convertDistance(shareActivity.distance)} ${getDistanceUnitLabel()}`}
+                </div>
+                <div style={styles.sharePreviewMeta}>
+                  {getShareActivityName(shareActivity)} · {formatDate(shareActivity.date)}
+                </div>
+              </div>
+
+              <label style={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={shareIncludeComment}
+                  onChange={(event) => setShareIncludeComment(event.target.checked)}
+                />
+                <span>{language === "lv" ? "Pievienot komentāru share bildei" : "Include comment in share image"}</span>
+              </label>
+
+              {shareIncludeComment && (
+                <>
+                  <label style={styles.label}>{language === "lv" ? "Komentārs" : "Comment"}</label>
+                  <textarea
+                    value={shareComment}
+                    onChange={(event) => setShareComment(event.target.value)}
+                    placeholder={language === "lv" ? "Kā gāja šajā aktivitātē?" : "How did this activity feel?"}
+                    style={styles.textarea}
+                    rows={5}
+                  />
+                  <p style={styles.shareHint}>
+                    {shareComment.trim().length > 110
+                      ? (language === "lv" ? "Garš komentārs: tiks izveidoti 2 Story slaidi." : "Long comment: 2 Story slides will be created.")
+                      : (language === "lv" ? "Īss komentārs: tas būs uz vienas bildes kopā ar datiem." : "Short comment: it will stay on one image with the data.")}
+                  </p>
+                </>
+              )}
+
+              <div className="runology-form-actions" style={styles.formActions}>
+                <button
+                  type="button"
+                  onClick={handleShareActivityImage}
+                  disabled={shareLoading}
+                  style={shareLoading ? styles.primaryButtonDisabled : styles.primaryButton}
+                >
+                  {shareLoading
+                    ? (language === "lv" ? "Veido..." : "Creating...")
+                    : (language === "lv" ? "Izveidot Instagram bildi" : "Create Instagram image")}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeActivityShareModal}
+                  disabled={shareLoading}
+                  style={styles.cancelButton}
+                >
+                  {language === "lv" ? "Atcelt" : "Cancel"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeView === "dashboard" && (
           <section className="runology-dashboard-page" style={styles.dashboardPage}>
             <div style={styles.sectionHeaderCompact}>
@@ -4162,6 +4335,17 @@ function renderInsightsPanel() {
                               className="runology-run-action-row"
                               style={styles.runActionRow}
                             >
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openActivityShareModal(run);
+                                }}
+                                style={styles.shareActivityButton}
+                              >
+                                Share
+                              </button>
+
                               <button
                                 type="button"
                                 onClick={(event) => {
@@ -4814,13 +4998,6 @@ statSubtext: {
     boxShadow: "0 12px 34px rgba(0, 0, 0, 0.18)",
   },
 
-  insightFilterGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: 12,
-    marginBottom: 18,
-  },
-
   insightFilterRow: {
     display: "grid",
     gap: "8px",
@@ -5470,6 +5647,48 @@ statSubtext: {
     boxShadow: "0 28px 90px rgba(0, 0, 0, 0.48)",
     border: "1px solid rgba(255, 255, 255, 0.07)",
   },
+  sharePreviewCard: {
+    background: "linear-gradient(135deg, rgba(138, 208, 141, 0.18), rgba(255, 255, 255, 0.05))",
+    border: "1px solid rgba(138, 208, 141, 0.28)",
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 18,
+  },
+  sharePreviewBrand: {
+    color: "#8AD08D",
+    fontSize: 14,
+    fontWeight: 900,
+    letterSpacing: 2.4,
+    marginBottom: 14,
+  },
+  sharePreviewBig: {
+    color: "#ffffff",
+    fontSize: 42,
+    fontWeight: 950,
+    letterSpacing: -1.2,
+    lineHeight: 1,
+  },
+  sharePreviewMeta: {
+    color: "rgba(255,255,255,0.62)",
+    fontSize: 14,
+    fontWeight: 700,
+    marginTop: 12,
+  },
+  checkboxRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 14,
+    fontWeight: 750,
+    marginBottom: 14,
+  },
+  shareHint: {
+    margin: "8px 0 18px",
+    color: "rgba(255,255,255,0.52)",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
   primaryButtonDisabled: {
     width: "100%",
     border: "1px solid rgba(255, 255, 255, 0.07)",
@@ -5742,6 +5961,16 @@ statSubtext: {
     cursor: "pointer",
     color: "#f8fafc",
     background: "rgba(46, 46, 46, 0.86)",
+  },
+  shareActivityButton: {
+    border: "1px solid rgba(138, 208, 141, 0.5)",
+    background: "rgba(138, 208, 141, 0.16)",
+    color: "#d7e3d8",
+    borderRadius: "14px",
+    padding: "11px 14px",
+    fontSize: "14px",
+    fontWeight: "800",
+    cursor: "pointer",
   },
   deleteButton: {
     border: "none",
