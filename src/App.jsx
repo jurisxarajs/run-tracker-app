@@ -401,17 +401,17 @@ function LanguageSwitcher({ language, onChange, dark = false }) {
     <div className="runology-language-switch" style={wrapperStyle}>
       <button
         type="button"
-        onClick={() => onChange("lv")}
-        style={language === "lv" ? activeButtonStyle : buttonBase}
-      >
-        LV
-      </button>
-      <button
-        type="button"
         onClick={() => onChange("en")}
         style={language === "en" ? activeButtonStyle : buttonBase}
       >
         EN
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("lv")}
+        style={language === "lv" ? activeButtonStyle : buttonBase}
+      >
+        LV
       </button>
     </div>
   );
@@ -536,11 +536,7 @@ export default function App() {
   const [profilePassword, setProfilePassword] = useState("");
   const [profilePasswordConfirm, setProfilePasswordConfirm] = useState("");
   const [showProfilePasswords, setShowProfilePasswords] = useState(false);
-  const [language, setLanguage] = useState(() => {
-    if (typeof window === "undefined") return "lv";
-    const saved = window.localStorage.getItem("runology-language");
-    return saved === "en" ? "en" : "lv";
-  });
+  const [language, setLanguage] = useState("en");
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [feedbackEmail, setFeedbackEmail] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
@@ -2264,26 +2260,17 @@ function formatDurationFromMinutes(value) {
     setFeedbackError("");
 
     try {
-      const response = await fetch("/api/feedback", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: cleanEmail || null,
-          message: cleanMessage,
-          user_id: session?.user?.id || null,
-          user_email: session?.user?.email || null,
-          page: typeof window !== "undefined" ? window.location.href : null,
-          language,
-          created_at: new Date().toISOString(),
-        }),
+      const { error } = await supabase.from("feedback").insert({
+        email: cleanEmail || null,
+        message: cleanMessage,
+        user_id: session?.user?.id || null,
+        user_email: session?.user?.email || null,
+        page: typeof window !== "undefined" ? window.location.href : null,
+        language,
       });
 
-      const result = await response.json().catch(() => null);
-
-      if (!response.ok || result?.error) {
-        throw new Error(result?.error || text.feedbackError);
+      if (error) {
+        throw error;
       }
 
       setFeedbackStatus(text.feedbackSuccess);
