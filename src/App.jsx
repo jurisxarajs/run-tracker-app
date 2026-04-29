@@ -247,7 +247,8 @@ const responsiveCss = `
       width: 100% !important;
     }
 
-    .runology-insights-grid {
+    .runology-insights-grid,
+    .runology-insight-recommendation-grid {
       grid-template-columns: 1fr !important;
     }
 
@@ -540,6 +541,12 @@ export default function App() {
     const saved = window.localStorage.getItem("runology-language");
     return saved === "en" ? "en" : "lv";
   });
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackEmail, setFeedbackEmail] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackStatus, setFeedbackStatus] = useState("");
+  const [feedbackError, setFeedbackError] = useState("");
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -726,6 +733,19 @@ export default function App() {
         notEnoughChartData: "Vajag vismaz 2 aktivitātes ar distanci, lai parādītu grafiku.",
         latestPace: "Pēdējais temps",
         chartEntries: "ieraksti",
+        giveFeedback: "Give feedback",
+        feedbackTitle: "Nosūtīt feedback",
+        feedbackSubtitle: "Pastāsti, kas jāuzlabo, kas nestrādā vai kas pietrūkst Runology.",
+        feedbackEmail: "E-pasts",
+        feedbackEmailPlaceholder: "nav obligāts",
+        feedbackMessage: "Feedback",
+        feedbackMessagePlaceholder: "Uzraksti savu ziņu...",
+        feedbackRequired: "Ievadi feedback tekstu.",
+        feedbackSend: "Send",
+        feedbackSending: "Sūta...",
+        feedbackCancel: "Atcelt",
+        feedbackSuccess: "Paldies. Feedback nosūtīts.",
+        feedbackError: "Neizdevās nosūtīt feedback.",
       },
       en: {
         brand: "RUNOLOGY",
@@ -892,6 +912,19 @@ export default function App() {
         notEnoughChartData: "Add at least 2 distance-based activities to show the chart.",
         latestPace: "Latest pace",
         chartEntries: "entries",
+        giveFeedback: "Give feedback",
+        feedbackTitle: "Send feedback",
+        feedbackSubtitle: "Tell us what should be improved, what is broken, or what is missing in Runology.",
+        feedbackEmail: "Email",
+        feedbackEmailPlaceholder: "optional",
+        feedbackMessage: "Feedback",
+        feedbackMessagePlaceholder: "Write your message...",
+        feedbackRequired: "Enter feedback text.",
+        feedbackSend: "Send",
+        feedbackSending: "Sending...",
+        feedbackCancel: "Cancel",
+        feedbackSuccess: "Thanks. Feedback sent.",
+        feedbackError: "Could not send feedback.",
       },
     };
 
@@ -1079,6 +1112,43 @@ const insightData = useMemo(() => {
 
   const isGymView = selectedType === "gym";
 
+  function formatKm(value) {
+    return `${value.toFixed(1)} km`;
+  }
+
+  function formatSignedPace(value) {
+    const prefix = value < 0 ? "-" : "+";
+    return `${prefix}${formatPaceNumber(Math.abs(value))} / km`;
+  }
+
+  function getConfidence(count) {
+    if (count >= 12) {
+      return language === "lv"
+        ? "Uzticamība: augsta. Datu jau ir pietiekami, lai secinājumi būtu praktiski lietojami."
+        : "Confidence: high. You have enough data for practical conclusions.";
+    }
+
+    if (count >= 7) {
+      return language === "lv"
+        ? "Uzticamība: vidēja. Secinājumi ir lietojami, bet vēl pārbaudi tos ar nākamajiem treniņiem."
+        : "Confidence: medium. The signals are useful, but validate them with future sessions.";
+    }
+
+    return language === "lv"
+      ? "Uzticamība: sākotnēja. Balstīts uz nelielu datu apjomu, tāpēc izmanto kā hipnotēzi, nevis likumu."
+      : "Confidence: early. Treat these as hypotheses, not fixed rules.";
+  }
+
+  function getValues(item, fieldName) {
+    const rawValue = item[fieldName];
+    return Array.isArray(rawValue)
+      ? rawValue
+      : String(rawValue || "")
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
+  }
+
   if (isGymView) {
     const gymActivities = sourceActivities
       .map((activity) => {
@@ -1094,7 +1164,7 @@ const insightData = useMemo(() => {
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     const count = gymActivities.length;
-    if (count < 2) return { count, cards: [], contextLines: [], isGymView };
+    if (count < 2) return { count, cards: [], contextLines: [], recommendations: [], patternLines: [], riskLines: [], experimentLines: [], confidenceText: "", isGymView };
 
     const totalDuration = gymActivities.reduce((sum, item) => sum + item.durationValue, 0);
     const avgDuration = totalDuration / count;
@@ -1102,6 +1172,9 @@ const insightData = useMemo(() => {
     const previous = gymActivities.slice(0, -1);
     const previousAvgDuration = previous.reduce((sum, item) => sum + item.durationValue, 0) / previous.length;
     const trendDiff = latest.durationValue - previousAvgDuration;
+    const lastThree = gymActivities.slice(-3);
+    const lastThreeAvg = lastThree.reduce((sum, item) => sum + item.durationValue, 0) / lastThree.length;
+    const longest = gymActivities.reduce((best, item) => item.durationValue > best.durationValue ? item : best, gymActivities[0]);
 
     const trendText = Math.abs(trendDiff) < 1
       ? language === "lv"
@@ -1123,15 +1196,7 @@ const insightData = useMemo(() => {
       const groups = new Map();
 
       gymActivities.forEach((item) => {
-        const rawValue = item[fieldName];
-        const values = Array.isArray(rawValue)
-          ? rawValue
-          : String(rawValue || "")
-              .split(",")
-              .map((value) => value.trim())
-              .filter(Boolean);
-
-        values.forEach((value) => {
+        getValues(item, fieldName).forEach((value) => {
           if (!groups.has(value)) groups.set(value, []);
           groups.get(value).push(item);
         });
@@ -1153,6 +1218,52 @@ const insightData = useMemo(() => {
       commonFuel ? `${text.duringSession}: ${commonFuel.label} (${commonFuel.count}x)` : "",
     ].filter(Boolean);
 
+    const recommendations = [
+      {
+        title: language === "lv" ? "Nākamais solis" : "Next step",
+        body: language === "lv"
+          ? `Turpini ar aptuveni ${Math.round(avgDuration)} min treniņiem. Tas ir tavs pašreizējais stabilais zāles treniņa apjoms.`
+          : `Keep sessions around ${Math.round(avgDuration)} min. That is your current stable gym volume.`,
+      },
+      {
+        title: language === "lv" ? "Progresijas tests" : "Progression test",
+        body: language === "lv"
+          ? `Vienu no nākamajiem treniņiem pagarini par 5–10 min tikai tad, ja iepriekšējā dienā miegs un sajūta ir laba.`
+          : `Extend one of the next sessions by 5–10 min only if sleep and pre-session feel are good.`,
+      },
+      {
+        title: language === "lv" ? "Ko pierakstīt" : "What to log",
+        body: language === "lv"
+          ? "Pēc zāles treniņa piezīmēs atzīmē galveno fokusu: spēks, mobilitāte, core, kājas vai augšdaļa. Tas ļaus dot precīzākus secinājumus."
+          : "After gym sessions, log the main focus: strength, mobility, core, legs, or upper body. That will make future insights sharper.",
+      },
+    ];
+
+    const patternLines = [
+      language === "lv" ? `Pēdējo 3 zāles treniņu vidējais ilgums: ${Math.round(lastThreeAvg)} min.` : `Average duration over the last 3 gym sessions: ${Math.round(lastThreeAvg)} min.`,
+      language === "lv" ? `Garākais zāles treniņš: ${Math.round(longest.durationValue)} min.` : `Longest gym session: ${Math.round(longest.durationValue)} min.`,
+      ...contextLines,
+    ];
+
+    const riskLines = [
+      lastThreeAvg > avgDuration * 1.25
+        ? language === "lv"
+          ? "Pēdējie treniņi ir būtiski garāki nekā tavs vidējais. Uzmani nogurumu un nepievieno slodzi pārāk strauji."
+          : "Recent sessions are much longer than your average. Watch fatigue and avoid increasing load too quickly."
+        : "",
+      trendDiff < -10
+        ? language === "lv"
+          ? "Pēdējais treniņš bija īsāks nekā ierasts. Ja tas sakrīt ar sliktu miegu, nākamajā reizē ej uz vieglāku slodzi."
+          : "The latest session was shorter than usual. If this matches poor sleep, keep the next one lighter."
+        : "",
+    ].filter(Boolean);
+
+    const experimentLines = [
+      language === "lv" ? "Pamēģini 2 nedēļas turēt vienādu zāles treniņa ilgumu un mainīt tikai intensitāti." : "For 2 weeks, keep gym session duration stable and change only intensity.",
+      language === "lv" ? "Salīdzini zāles dienas ar nākamo skrējienu: vai pēc garāka zāles treniņa temps kļūst lēnāks?" : "Compare gym days with the next run: does pace slow down after longer gym sessions?",
+      language === "lv" ? "Atzīmē, vai treniņš bija kājas/augšdaļa/core. Tas ir nākamais datu līmenis personalizētiem ieteikumiem." : "Tag whether the session was legs/upper/core. That is the next data layer for better recommendations.",
+    ];
+
     return {
       count,
       isGymView,
@@ -1162,6 +1273,11 @@ const insightData = useMemo(() => {
         { title: text.insightsGymLatestDuration, value: formatDurationFromMinutes(latest.durationValue), detail: consistencyText },
       ],
       contextLines,
+      recommendations,
+      patternLines,
+      riskLines,
+      experimentLines,
+      confidenceText: getConfidence(count),
     };
   }
 
@@ -1180,7 +1296,7 @@ const insightData = useMemo(() => {
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const count = distanceActivities.length;
-  if (count < 2) return { count, cards: [], contextLines: [], isGymView };
+  if (count < 2) return { count, cards: [], contextLines: [], recommendations: [], patternLines: [], riskLines: [], experimentLines: [], confidenceText: "", isGymView };
 
   const totalDistance = distanceActivities.reduce((sum, item) => sum + item.distanceValue, 0);
   const totalDuration = distanceActivities.reduce((sum, item) => sum + item.durationValue, 0);
@@ -1192,24 +1308,18 @@ const insightData = useMemo(() => {
   const previousDuration = previous.reduce((sum, item) => sum + item.durationValue, 0);
   const previousAvgPace = previousDuration / previousDistance;
   const trendDiff = latest.paceValue - previousAvgPace;
+  const lastThree = distanceActivities.slice(-3);
+  const lastThreeDistance = lastThree.reduce((sum, item) => sum + item.distanceValue, 0);
+  const lastThreeDuration = lastThree.reduce((sum, item) => sum + item.durationValue, 0);
+  const lastThreePace = lastThreeDuration / lastThreeDistance;
+  const longest = distanceActivities.reduce((best, item) => item.distanceValue > best.distanceValue ? item : best, distanceActivities[0]);
+  const fastest = distanceActivities.reduce((best, item) => item.paceValue < best.paceValue ? item : best, distanceActivities[0]);
 
-  function formatKm(value) {
-    return `${value.toFixed(1)} km`;
-  }
-
-  function bestAverageByField(fieldName, options, minItems = 2) {
+  function averageByField(fieldName, options, minItems = 2) {
     const groups = new Map();
 
     distanceActivities.forEach((item) => {
-      const rawValue = item[fieldName];
-      const values = Array.isArray(rawValue)
-        ? rawValue
-        : String(rawValue || "")
-            .split(",")
-            .map((value) => value.trim())
-            .filter(Boolean);
-
-      values.forEach((value) => {
+      getValues(item, fieldName).forEach((value) => {
         if (!groups.has(value)) groups.set(value, []);
         groups.get(value).push(item);
       });
@@ -1219,20 +1329,47 @@ const insightData = useMemo(() => {
       .map(([value, items]) => {
         const distanceSum = items.reduce((sum, item) => sum + item.distanceValue, 0);
         const durationSum = items.reduce((sum, item) => sum + item.durationValue, 0);
-        return { value, label: getOptionLabel(options, value), count: items.length, avgPace: durationSum / distanceSum };
+        const groupPace = durationSum / distanceSum;
+        return {
+          value,
+          label: getOptionLabel(options, value),
+          count: items.length,
+          avgPace: groupPace,
+          deltaFromAverage: groupPace - avgPace,
+        };
       })
       .filter((item) => item.count >= minItems && item.label)
-      .sort((a, b) => a.avgPace - b.avgPace)[0] || null;
+      .sort((a, b) => a.avgPace - b.avgPace);
   }
 
-  const bestSleep = bestAverageByField("sleep_quality", sleepOptions);
-  const bestPreSession = bestAverageByField("pre_session_state", preSessionOptions);
-  const bestFuel = bestAverageByField("during_session_fuel", duringSessionOptions);
+  const preSessionGroups = averageByField("pre_session_state", preSessionOptions);
+  const sleepGroups = averageByField("sleep_quality", sleepOptions);
+  const fuelGroups = averageByField("during_session_fuel", duringSessionOptions);
+  const bestPreSession = preSessionGroups[0] || null;
+  const bestSleep = sleepGroups[0] || null;
+  const bestFuel = fuelGroups[0] || null;
+  const worstSleep = sleepGroups.length > 1 ? sleepGroups[sleepGroups.length - 1] : null;
+  const worstPreSession = preSessionGroups.length > 1 ? preSessionGroups[preSessionGroups.length - 1] : null;
+
+  function makeContextLine(label, item) {
+    if (!item) return "";
+    const deltaText = Math.abs(item.deltaFromAverage) < 0.05
+      ? language === "lv" ? "tuvu tavam vidējam" : "close to your average"
+      : item.deltaFromAverage < 0
+        ? language === "lv"
+          ? `${formatPaceNumber(Math.abs(item.deltaFromAverage))} / km ātrāk nekā tavs vidējais`
+          : `${formatPaceNumber(Math.abs(item.deltaFromAverage))} / km faster than your average`
+        : language === "lv"
+          ? `${formatPaceNumber(item.deltaFromAverage)} / km lēnāk nekā tavs vidējais`
+          : `${formatPaceNumber(item.deltaFromAverage)} / km slower than your average`;
+
+    return `${label}: ${item.label} (${formatPaceNumber(item.avgPace)} / km, ${deltaText}, ${item.count}x)`;
+  }
 
   const contextLines = [
-    bestPreSession ? `${text.preSessionState}: ${bestPreSession.label} (${formatPaceNumber(bestPreSession.avgPace)} / km)` : "",
-    bestSleep ? `${text.sleep}: ${bestSleep.label} (${formatPaceNumber(bestSleep.avgPace)} / km)` : "",
-    bestFuel ? `${text.duringSession}: ${bestFuel.label} (${formatPaceNumber(bestFuel.avgPace)} / km)` : "",
+    makeContextLine(text.preSessionState, bestPreSession),
+    makeContextLine(text.sleep, bestSleep),
+    makeContextLine(text.duringSession, bestFuel),
   ].filter(Boolean);
 
   const trendText = Math.abs(trendDiff) < 0.05
@@ -1251,6 +1388,71 @@ const insightData = useMemo(() => {
     ? `Tev ir ${count} aktivitātes ar distanci. Vidēji viena aktivitāte ir ${formatKm(avgDistance)}.`
     : `You have ${count} distance-based activities. Average distance is ${formatKm(avgDistance)}.`;
 
+  const recommendations = [
+    bestPreSession && bestPreSession.deltaFromAverage < -0.05
+      ? {
+          title: language === "lv" ? "Ko atkārtot" : "Repeat this",
+          body: language === "lv"
+            ? `Plāno svarīgākos skrējienus ar statusu “${bestPreSession.label}”. Šajā kontekstā tavs temps ir ${formatPaceNumber(Math.abs(bestPreSession.deltaFromAverage))} / km labāks par vidējo.`
+            : `Plan key runs with “${bestPreSession.label}”. In this context your pace is ${formatPaceNumber(Math.abs(bestPreSession.deltaFromAverage))} / km better than average.`,
+        }
+      : null,
+    bestSleep && bestSleep.deltaFromAverage < -0.05
+      ? {
+          title: language === "lv" ? "Miega signāls" : "Sleep signal",
+          body: language === "lv"
+            ? `Kad miegs ir “${bestSleep.label}”, tev parasti iet labāk. Šādas dienas izmanto kvalitātes treniņiem.`
+            : `When sleep is “${bestSleep.label}”, performance is usually better. Use those days for quality sessions.`,
+        }
+      : null,
+    bestFuel && bestFuel.deltaFromAverage < -0.05
+      ? {
+          title: language === "lv" ? "Fuel stratēģija" : "Fuel strategy",
+          body: language === "lv"
+            ? `“${bestFuel.label}” šobrīd izskatās kā labākais variants aktivitātes laikā. Pārbaudi to vēl 2–3 līdzīgos skrējienos.`
+            : `“${bestFuel.label}” currently looks like the best in-session option. Test it in 2–3 similar runs.`,
+        }
+      : null,
+    {
+      title: language === "lv" ? "Nākamais skrējiens" : "Next run",
+      body: language === "lv"
+        ? `Mērķis: ${formatKm(avgDistance)}–${formatKm(avgDistance * 1.15)} vieglā tempā. Salīdzini sajūtu un tempu ar pašreizējo vidējo ${formatPaceNumber(avgPace)} / km.`
+        : `Target: ${formatKm(avgDistance)}–${formatKm(avgDistance * 1.15)} at easy effort. Compare feel and pace with your current average of ${formatPaceNumber(avgPace)} / km.`,
+    },
+  ].filter(Boolean).slice(0, 4);
+
+  const patternLines = [
+    language === "lv" ? `Pēdējo 3 aktivitāšu temps: ${formatPaceNumber(lastThreePace)} / km (${formatSignedPace(lastThreePace - avgPace)} pret kopējo vidējo).` : `Last 3 activity pace: ${formatPaceNumber(lastThreePace)} / km (${formatSignedPace(lastThreePace - avgPace)} vs total average).`,
+    language === "lv" ? `Ātrākā aktivitāte: ${formatPaceNumber(fastest.paceValue)} / km pie ${formatKm(fastest.distanceValue)}.` : `Fastest activity: ${formatPaceNumber(fastest.paceValue)} / km over ${formatKm(fastest.distanceValue)}.`,
+    language === "lv" ? `Garākā aktivitāte: ${formatKm(longest.distanceValue)} ar tempu ${formatPaceNumber(longest.paceValue)} / km.` : `Longest activity: ${formatKm(longest.distanceValue)} at ${formatPaceNumber(longest.paceValue)} / km.`,
+  ];
+
+  const riskLines = [
+    worstSleep && worstSleep.deltaFromAverage > 0.05
+      ? language === "lv"
+        ? `Uzmanies ar “${worstSleep.label}” miegu: šajā grupā temps ir ${formatPaceNumber(worstSleep.deltaFromAverage)} / km lēnāks par vidējo.`
+        : `Watch “${worstSleep.label}” sleep: this group is ${formatPaceNumber(worstSleep.deltaFromAverage)} / km slower than average.`
+      : "",
+    worstPreSession && worstPreSession.deltaFromAverage > 0.05
+      ? language === "lv"
+        ? `“${worstPreSession.label}” pirms aktivitātes pašlaik izskatās vājākais konteksts. Neliec tur svarīgākos skrējienus.`
+        : `“${worstPreSession.label}” currently looks like the weakest pre-session context. Avoid key runs there.`
+      : "",
+    latest.distanceValue > avgDistance * 1.35
+      ? language === "lv"
+        ? "Pēdējā aktivitāte bija būtiski garāka par tavu vidējo. Nākamo treniņu labāk turi vieglu."
+        : "The latest activity was much longer than your average. Keep the next session easy."
+      : "",
+  ].filter(Boolean);
+
+  const experimentLines = [
+    language === "lv" ? "2 skrējienus pēc kārtas atkārto labāko kontekstu un pārbaudi, vai temps turas labāks." : "Repeat the best context for 2 runs and check whether pace stays better.",
+    language === "lv" ? "Vienu vieglo skrējienu dari bez tempa mērķa, bet pēc tam pieraksti sajūtu. Tas palīdz nošķirt formu no noguruma." : "Do one easy run without a pace target, then log how it felt. This helps separate fitness from fatigue.",
+    language === "lv" ? "Ja skrējiens ir virs 45 min, salīdzini fuel variantus: ūdens, elektrolīti, gels/uzkodas." : "For runs over 45 min, compare fuel options: water, electrolytes, gel/snacks.",
+    language === "lv" ? "Pēc slikta miega izvēlies vieglu skrējienu, nevis kvalitātes treniņu. Tad salīdzini atjaunošanos." : "After poor sleep, choose an easy run instead of quality work. Then compare recovery.",
+    language === "lv" ? "Pievieno piezīmēs vienu teikumu: kas šodien palīdzēja vai traucēja. Tas nākamajiem insights dos daudz vairāk konteksta." : "Add one sentence in notes: what helped or hurt today. That gives future insights much more context.",
+  ];
+
   return {
     count,
     isGymView,
@@ -1260,9 +1462,13 @@ const insightData = useMemo(() => {
       { title: text.insightsAvgDistance, value: formatKm(avgDistance), detail: consistencyText },
     ],
     contextLines,
+    recommendations,
+    patternLines,
+    riskLines,
+    experimentLines,
+    confidenceText: getConfidence(count),
   };
 }, [runs, language, preSessionOptions, sleepOptions, duringSessionOptions, text, insightActivityType]);
-
 const monthlyIdentity = useMemo(() => {
   const now = new Date();
   const month = now.getMonth();
@@ -2025,6 +2231,70 @@ function formatDurationFromMinutes(value) {
     setSaving(false);
   }
 
+  function openFeedbackModal() {
+    setFeedbackEmail(session?.user?.email || "");
+    setFeedbackMessage("");
+    setFeedbackStatus("");
+    setFeedbackError("");
+    setIsFeedbackModalOpen(true);
+  }
+
+  function closeFeedbackModal() {
+    if (feedbackLoading) return;
+
+    setIsFeedbackModalOpen(false);
+    setFeedbackStatus("");
+    setFeedbackError("");
+  }
+
+  async function handleSendFeedback(e) {
+    e.preventDefault();
+
+    const cleanMessage = feedbackMessage.trim();
+    const cleanEmail = feedbackEmail.trim();
+
+    if (!cleanMessage) {
+      setFeedbackError(text.feedbackRequired);
+      setFeedbackStatus("");
+      return;
+    }
+
+    setFeedbackLoading(true);
+    setFeedbackStatus("");
+    setFeedbackError("");
+
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: cleanEmail || null,
+          message: cleanMessage,
+          user_id: session?.user?.id || null,
+          user_email: session?.user?.email || null,
+          page: typeof window !== "undefined" ? window.location.href : null,
+          language,
+          created_at: new Date().toISOString(),
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || result?.error) {
+        throw new Error(result?.error || text.feedbackError);
+      }
+
+      setFeedbackStatus(text.feedbackSuccess);
+      setFeedbackMessage("");
+    } catch (err) {
+      setFeedbackError(err?.message || text.feedbackError);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }
+
   async function handleDelete(runId) {
     if (!session) return;
 
@@ -2556,6 +2826,51 @@ function renderInsightsPanel() {
           <div style={styles.insightContextLine}>{text.insightsNoContext}</div>
         )}
       </div>
+
+      {insightData.confidenceText ? (
+        <div style={styles.insightConfidenceBox}>{insightData.confidenceText}</div>
+      ) : null}
+
+      {insightData.recommendations.length > 0 ? (
+        <div style={styles.insightSectionBox}>
+          <div style={styles.insightCardTitle}>{language === "lv" ? "Ko darīt tālāk" : "What to do next"}</div>
+          <div className="runology-insight-recommendation-grid" style={styles.insightRecommendationGrid}>
+            {insightData.recommendations.map((item) => (
+              <div key={`${item.title}-${item.body}`} style={styles.insightRecommendationCard}>
+                <div style={styles.insightRecommendationTitle}>{item.title}</div>
+                <div style={styles.insightRecommendationBody}>{item.body}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {insightData.patternLines.length > 0 ? (
+        <div style={styles.insightSectionBox}>
+          <div style={styles.insightCardTitle}>{language === "lv" ? "Signāli datos" : "Signals in your data"}</div>
+          {insightData.patternLines.map((line) => (
+            <div key={line} style={styles.insightContextLine}>{line}</div>
+          ))}
+        </div>
+      ) : null}
+
+      {insightData.riskLines.length > 0 ? (
+        <div style={styles.insightRiskBox}>
+          <div style={styles.insightCardTitle}>{language === "lv" ? "Kam pievērst uzmanību" : "Watch-outs"}</div>
+          {insightData.riskLines.map((line) => (
+            <div key={line} style={styles.insightContextLine}>{line}</div>
+          ))}
+        </div>
+      ) : null}
+
+      {insightData.experimentLines.length > 0 ? (
+        <div style={styles.insightSectionBox}>
+          <div style={styles.insightCardTitle}>{language === "lv" ? "Eksperimenti nākamajām aktivitātēm" : "Experiments for upcoming activities"}</div>
+          {insightData.experimentLines.map((line) => (
+            <div key={line} style={styles.insightContextLine}>{line}</div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -3091,6 +3406,14 @@ function renderInsightsPanel() {
               </button>
             </div>
 
+            <button
+              type="button"
+              onClick={openFeedbackModal}
+              style={styles.feedbackHeaderButton}
+            >
+              {text.giveFeedback}
+            </button>
+
             <LanguageSwitcher language={language} onChange={toggleLanguage} />
             <button
               className="runology-logout-button"
@@ -3101,6 +3424,73 @@ function renderInsightsPanel() {
             </button>
           </div>
         </header>
+
+        {isFeedbackModalOpen && (
+          <div className="runology-modal-backdrop" style={styles.modalBackdrop}>
+            <div style={styles.feedbackModalCard}>
+              <button
+                type="button"
+                onClick={closeFeedbackModal}
+                disabled={feedbackLoading}
+                style={styles.modalCloseButton}
+                aria-label={language === "lv" ? "Aizvērt" : "Close"}
+              >
+                ×
+              </button>
+
+              <div style={styles.sectionHeader}>
+                <h2 className="runology-section-title" style={styles.sectionTitle}>
+                  {text.feedbackTitle}
+                </h2>
+                <p style={styles.sectionText}>{text.feedbackSubtitle}</p>
+              </div>
+
+              <form onSubmit={handleSendFeedback} style={styles.form}>
+                <label style={styles.label}>{text.feedbackEmail}</label>
+                <input
+                  type="email"
+                  value={feedbackEmail}
+                  onChange={(e) => setFeedbackEmail(e.target.value)}
+                  placeholder={text.feedbackEmailPlaceholder}
+                  style={styles.input}
+                />
+
+                <label style={styles.label}>{text.feedbackMessage}</label>
+                <textarea
+                  value={feedbackMessage}
+                  onChange={(e) => setFeedbackMessage(e.target.value)}
+                  placeholder={text.feedbackMessagePlaceholder}
+                  style={styles.textarea}
+                  rows={6}
+                  required
+                />
+
+                <div className="runology-form-actions" style={styles.formActions}>
+                  <button
+                    className="runology-primary-button"
+                    type="submit"
+                    disabled={feedbackLoading}
+                    style={feedbackLoading ? styles.primaryButtonDisabled : styles.primaryButton}
+                  >
+                    {feedbackLoading ? text.feedbackSending : text.feedbackSend}
+                  </button>
+                  <button
+                    className="runology-cancel-button"
+                    type="button"
+                    onClick={closeFeedbackModal}
+                    disabled={feedbackLoading}
+                    style={styles.cancelButton}
+                  >
+                    {text.feedbackCancel}
+                  </button>
+                </div>
+
+                {feedbackStatus && <div style={styles.successBox}>{feedbackStatus}</div>}
+                {feedbackError && <div style={styles.errorBox}>{feedbackError}</div>}
+              </form>
+            </div>
+          </div>
+        )}
 
         {activeView === "dashboard" && (
           <section className="runology-dashboard-page" style={styles.dashboardPage}>
@@ -4365,6 +4755,59 @@ statSubtext: {
     lineHeight: 1.6,
   },
 
+  insightConfidenceBox: {
+    marginTop: "12px",
+    background: "rgba(36, 36, 36, 0.86)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    borderRadius: "16px",
+    padding: "12px 14px",
+    color: "rgba(236, 253, 245, 0.86)",
+    fontSize: "13px",
+    lineHeight: 1.55,
+  },
+
+  insightSectionBox: {
+    marginTop: "12px",
+    background: "rgba(32, 32, 32, 0.92)",
+    border: "1px solid rgba(255, 255, 255, 0.06)",
+    borderRadius: "18px",
+    padding: "16px",
+  },
+
+  insightRiskBox: {
+    marginTop: "12px",
+    background: "rgba(44, 32, 32, 0.72)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    borderRadius: "18px",
+    padding: "16px",
+  },
+
+  insightRecommendationGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "10px",
+  },
+
+  insightRecommendationCard: {
+    background: "rgba(255, 255, 255, 0.045)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    borderRadius: "15px",
+    padding: "13px",
+  },
+
+  insightRecommendationTitle: {
+    color: "#f8fafc",
+    fontSize: "14px",
+    fontWeight: "850",
+    marginBottom: "6px",
+  },
+
+  insightRecommendationBody: {
+    color: "rgba(255, 255, 255, 0.78)",
+    fontSize: "13px",
+    lineHeight: 1.5,
+  },
+
   chartCard: {
     background: "rgba(26, 26, 26, 0.92)",
     borderRadius: "22px",
@@ -4841,6 +5284,41 @@ statSubtext: {
     cursor: "pointer",
     color: "#e7d9c5",
     textAlign: "left",
+  },
+  feedbackHeaderButton: {
+    border: "1px solid rgba(34, 197, 94, 0.54)",
+    borderRadius: "16px",
+    padding: "12px 18px",
+    fontSize: "15px",
+    fontWeight: "800",
+    cursor: "pointer",
+    color: "#dcfce7",
+    background: "rgba(34, 197, 94, 0.12)",
+    whiteSpace: "nowrap",
+  },
+  feedbackModalCard: {
+    width: "min(560px, 100%)",
+    maxHeight: "calc(100vh - 56px)",
+    overflowY: "auto",
+    position: "relative",
+    background: "rgba(26, 26, 26, 0.96)",
+    borderRadius: "24px",
+    padding: "28px",
+    boxShadow: "0 28px 90px rgba(0, 0, 0, 0.48)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+  },
+  primaryButtonDisabled: {
+    width: "100%",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    borderRadius: "12px",
+    padding: "15px 18px",
+    fontSize: "17px",
+    fontWeight: "700",
+    cursor: "not-allowed",
+    color: "rgba(248, 250, 252, 0.62)",
+    background: "rgba(47, 47, 47, 0.56)",
+    boxShadow: "none",
+    marginTop: "10px",
   },
   logoutButton: {
     border: "1px solid rgba(255, 255, 255, 0.07)",
