@@ -248,7 +248,8 @@ const responsiveCss = `
     }
 
     .runology-insights-grid,
-    .runology-insight-recommendation-grid {
+    .runology-insight-recommendation-grid,
+    .runology-insight-filter-grid {
       grid-template-columns: 1fr !important;
     }
 
@@ -401,17 +402,17 @@ function LanguageSwitcher({ language, onChange, dark = false }) {
     <div className="runology-language-switch" style={wrapperStyle}>
       <button
         type="button"
-        onClick={() => onChange("en")}
-        style={language === "en" ? activeButtonStyle : buttonBase}
-      >
-        EN
-      </button>
-      <button
-        type="button"
         onClick={() => onChange("lv")}
         style={language === "lv" ? activeButtonStyle : buttonBase}
       >
         LV
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("en")}
+        style={language === "en" ? activeButtonStyle : buttonBase}
+      >
+        EN
       </button>
     </div>
   );
@@ -526,6 +527,8 @@ export default function App() {
   const [expandedRunId, setExpandedRunId] = useState(null);
   const [showInsights, setShowInsights] = useState(false);
   const [insightActivityType, setInsightActivityType] = useState("all");
+  const [insightDateRange, setInsightDateRange] = useState("90");
+  const [insightEffortFilter, setInsightEffortFilter] = useState("all");
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
@@ -536,7 +539,11 @@ export default function App() {
   const [profilePassword, setProfilePassword] = useState("");
   const [profilePasswordConfirm, setProfilePasswordConfirm] = useState("");
   const [showProfilePasswords, setShowProfilePasswords] = useState(false);
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState(() => {
+    if (typeof window === "undefined") return "lv";
+    const saved = window.localStorage.getItem("runology-language");
+    return saved === "en" ? "en" : "lv";
+  });
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [feedbackEmail, setFeedbackEmail] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
@@ -711,6 +718,20 @@ export default function App() {
         insightsSubtitle: "Īss pārskats no taviem aktivitāšu datiem.",
         insightSportFilter: "Sporta veids",
         insightAllSports: "Skrējieni + pārgājieni",
+        insightDateFilter: "Periods",
+        insightEffortFilter: "Sajūta",
+        insightLast30: "Pēdējās 30 dienas",
+        insightLast90: "Pēdējās 90 dienas",
+        insightThisYear: "Šis gads",
+        insightAllTime: "Viss laiks",
+        insightAllEfforts: "Visas sajūtas",
+        insightEasyEfforts: "Vieglas / labas",
+        insightHardEfforts: "Grūtas",
+        insightsWeeklyLoad: "Nedēļas slodze",
+        insightsConsistency: "Konsekvence",
+        insightsLongest: "Garākais",
+        insightsFastest: "Ātrākais",
+        insightsRecentChange: "7 dienas pret iepriekšējām 7",
         insightsNotEnough: "Pievieno vismaz 2 aktivitātes ar distanci, lai redzētu jēgpilnus insights.",
         insightsBasedOn: "Balstīts uz",
         insightsActivities: "aktivitātēm",
@@ -890,6 +911,20 @@ export default function App() {
         insightsSubtitle: "A short readout from your activity data.",
         insightSportFilter: "Sport",
         insightAllSports: "Runs + hikes",
+        insightDateFilter: "Period",
+        insightEffortFilter: "Effort",
+        insightLast30: "Last 30 days",
+        insightLast90: "Last 90 days",
+        insightThisYear: "This year",
+        insightAllTime: "All time",
+        insightAllEfforts: "All efforts",
+        insightEasyEfforts: "Easy / good",
+        insightHardEfforts: "Hard",
+        insightsWeeklyLoad: "Weekly load",
+        insightsConsistency: "Consistency",
+        insightsLongest: "Longest",
+        insightsFastest: "Fastest",
+        insightsRecentChange: "7 days vs previous 7",
         insightsNotEnough: "Add at least 2 distance-based activities to see useful insights.",
         insightsBasedOn: "Based on",
         insightsActivities: "activities",
@@ -1095,21 +1130,82 @@ const chartData = useMemo(() => {
 
 const insightData = useMemo(() => {
   const selectedType = insightActivityType;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  function parseActivityDate(value) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function getInsightRangeStart() {
+    if (insightDateRange === "all") return null;
+    if (insightDateRange === "year") return new Date(today.getFullYear(), 0, 1);
+    const days = Number(insightDateRange || 90);
+    const start = new Date(today);
+    start.setDate(start.getDate() - days + 1);
+    return start;
+  }
+
+  function matchesInsightEffort(activity) {
+    if (insightEffortFilter === "all") return true;
+    const easyMoods = ["😄", "🙂"];
+    const hardMoods = ["😓", "🥵"];
+    if (insightEffortFilter === "easy") return easyMoods.includes(activity.mood);
+    if (insightEffortFilter === "hard") return hardMoods.includes(activity.mood);
+    return true;
+  }
+
+  const insightRangeStart = getInsightRangeStart();
 
   const sourceActivities = runs.filter((activity) => {
     const type = activity.type || "run";
 
     if (selectedType === "all") {
-      return type === "run" || type === "hike";
+      if (type !== "run" && type !== "hike") return false;
+    } else if (type !== selectedType) {
+      return false;
     }
 
-    return type === selectedType;
+    const activityDate = parseActivityDate(activity.date);
+    if (!activityDate) return false;
+    if (insightRangeStart && activityDate < insightRangeStart) return false;
+    if (activityDate > new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59)) return false;
+
+    return matchesInsightEffort(activity);
   });
 
   const isGymView = selectedType === "gym";
 
   function formatKm(value) {
     return `${value.toFixed(1)} km`;
+  }
+
+  function formatPercentChange(current, previous) {
+    if (!previous || previous <= 0) return current > 0 ? "+100%" : "0%";
+    const change = ((current - previous) / previous) * 100;
+    const prefix = change >= 0 ? "+" : "";
+    return `${prefix}${Math.round(change)}%`;
+  }
+
+  function countActiveWeeks(items) {
+    const weeks = new Set();
+    items.forEach((item) => {
+      const dateValue = parseActivityDate(item.date);
+      if (!dateValue) return;
+      const monday = new Date(dateValue);
+      const day = monday.getDay() || 7;
+      monday.setDate(monday.getDate() - day + 1);
+      weeks.add(monday.toISOString().slice(0, 10));
+    });
+    return weeks.size;
+  }
+
+  function getDaysBetween(firstDate, lastDate) {
+    const first = parseActivityDate(firstDate);
+    const last = parseActivityDate(lastDate);
+    if (!first || !last) return 1;
+    return Math.max(1, Math.round((last - first) / (1000 * 60 * 60 * 24)) + 1);
   }
 
   function formatSignedPace(value) {
@@ -1310,6 +1406,25 @@ const insightData = useMemo(() => {
   const lastThreePace = lastThreeDuration / lastThreeDistance;
   const longest = distanceActivities.reduce((best, item) => item.distanceValue > best.distanceValue ? item : best, distanceActivities[0]);
   const fastest = distanceActivities.reduce((best, item) => item.paceValue < best.paceValue ? item : best, distanceActivities[0]);
+  const activeWeeks = countActiveWeeks(distanceActivities);
+  const sessionsPerWeek = activeWeeks ? count / activeWeeks : count;
+  const last7Start = new Date(today);
+  last7Start.setDate(last7Start.getDate() - 6);
+  const previous7Start = new Date(today);
+  previous7Start.setDate(previous7Start.getDate() - 13);
+  const previous7End = new Date(today);
+  previous7End.setDate(previous7End.getDate() - 7);
+  const last7Distance = distanceActivities
+    .filter((item) => parseActivityDate(item.date) >= last7Start)
+    .reduce((sum, item) => sum + item.distanceValue, 0);
+  const previous7Distance = distanceActivities
+    .filter((item) => {
+      const itemDate = parseActivityDate(item.date);
+      return itemDate >= previous7Start && itemDate <= previous7End;
+    })
+    .reduce((sum, item) => sum + item.distanceValue, 0);
+  const spanDays = getDaysBetween(distanceActivities[0].date, latest.date);
+  const kmPerWeek = totalDistance / Math.max(1, spanDays / 7);
 
   function averageByField(fieldName, options, minItems = 2) {
     const groups = new Map();
@@ -1381,10 +1496,18 @@ const insightData = useMemo(() => {
         : `Your latest activity was ${formatPaceNumber(trendDiff)} / km slower than your previous average.`;
 
   const consistencyText = language === "lv"
-    ? `Tev ir ${count} aktivitātes ar distanci. Vidēji viena aktivitāte ir ${formatKm(avgDistance)}.`
-    : `You have ${count} distance-based activities. Average distance is ${formatKm(avgDistance)}.`;
+    ? `${sessionsPerWeek.toFixed(1)} aktivitātes nedēļā šajā periodā. Vidēji viena aktivitāte ir ${formatKm(avgDistance)}.`
+    : `${sessionsPerWeek.toFixed(1)} activities per week in this period. Average distance is ${formatKm(avgDistance)}.`;
 
   const recommendations = [
+    last7Distance > previous7Distance * 1.25 && previous7Distance > 0
+      ? {
+          title: language === "lv" ? "Slodzes kontrole" : "Load control",
+          body: language === "lv"
+            ? `Pēdējās 7 dienās distance pieauga par ${formatPercentChange(last7Distance, previous7Distance)}. Nākamajam treniņam izvēlies vieglu tempu vai īsāku distanci.`
+            : `Distance increased by ${formatPercentChange(last7Distance, previous7Distance)} over the last 7 days. Make the next session easy or shorter.`,
+        }
+      : null,
     bestPreSession && bestPreSession.deltaFromAverage < -0.05
       ? {
           title: language === "lv" ? "Ko atkārtot" : "Repeat this",
@@ -1419,11 +1542,18 @@ const insightData = useMemo(() => {
 
   const patternLines = [
     language === "lv" ? `Pēdējo 3 aktivitāšu temps: ${formatPaceNumber(lastThreePace)} / km (${formatSignedPace(lastThreePace - avgPace)} pret kopējo vidējo).` : `Last 3 activity pace: ${formatPaceNumber(lastThreePace)} / km (${formatSignedPace(lastThreePace - avgPace)} vs total average).`,
+    language === "lv" ? `Pēdējās 7 dienas: ${formatKm(last7Distance)} (${formatPercentChange(last7Distance, previous7Distance)} pret iepriekšējām 7 dienām).` : `Last 7 days: ${formatKm(last7Distance)} (${formatPercentChange(last7Distance, previous7Distance)} vs previous 7 days).`,
     language === "lv" ? `Ātrākā aktivitāte: ${formatPaceNumber(fastest.paceValue)} / km pie ${formatKm(fastest.distanceValue)}.` : `Fastest activity: ${formatPaceNumber(fastest.paceValue)} / km over ${formatKm(fastest.distanceValue)}.`,
     language === "lv" ? `Garākā aktivitāte: ${formatKm(longest.distanceValue)} ar tempu ${formatPaceNumber(longest.paceValue)} / km.` : `Longest activity: ${formatKm(longest.distanceValue)} at ${formatPaceNumber(longest.paceValue)} / km.`,
+    language === "lv" ? `Vidējā nedēļas slodze šajā periodā: ${formatKm(kmPerWeek)} / nedēļā.` : `Average weekly load in this period: ${formatKm(kmPerWeek)} / week.`,
   ];
 
   const riskLines = [
+    last7Distance > previous7Distance * 1.3 && previous7Distance > 0
+      ? language === "lv"
+        ? "Pēdējo 7 dienu distance ir augusi par vairāk nekā 30%. Tas ir noguruma / traumu riska signāls."
+        : "The last 7 days are up by more than 30%. That is a fatigue / injury-risk signal."
+      : "",
     worstSleep && worstSleep.deltaFromAverage > 0.05
       ? language === "lv"
         ? `Uzmanies ar “${worstSleep.label}” miegu: šajā grupā temps ir ${formatPaceNumber(worstSleep.deltaFromAverage)} / km lēnāks par vidējo.`
@@ -1454,8 +1584,11 @@ const insightData = useMemo(() => {
     isGymView,
     cards: [
       { title: text.insightsAvgPace, value: `${formatPaceNumber(avgPace)} / km`, detail: `${text.insightsTotalDistance}: ${formatKm(totalDistance)}` },
+      { title: text.insightsRecentChange, value: formatPercentChange(last7Distance, previous7Distance), detail: `${formatKm(last7Distance)} vs ${formatKm(previous7Distance)}` },
+      { title: text.insightsWeeklyLoad, value: `${formatKm(kmPerWeek)} / week`, detail: consistencyText },
+      { title: text.insightsFastest, value: `${formatPaceNumber(fastest.paceValue)} / km`, detail: `${formatKm(fastest.distanceValue)} · ${formatDate(fastest.date)}` },
+      { title: text.insightsLongest, value: formatKm(longest.distanceValue), detail: `${formatPaceNumber(longest.paceValue)} / km · ${formatDate(longest.date)}` },
       { title: text.insightsTrend, value: formatPaceNumber(latest.paceValue) + " / km", detail: trendText },
-      { title: text.insightsAvgDistance, value: formatKm(avgDistance), detail: consistencyText },
     ],
     contextLines,
     recommendations,
@@ -1464,7 +1597,7 @@ const insightData = useMemo(() => {
     experimentLines,
     confidenceText: getConfidence(count),
   };
-}, [runs, language, preSessionOptions, sleepOptions, duringSessionOptions, text, insightActivityType]);
+}, [runs, language, preSessionOptions, sleepOptions, duringSessionOptions, text, insightActivityType, insightDateRange, insightEffortFilter]);
 const monthlyIdentity = useMemo(() => {
   const now = new Date();
   const month = now.getMonth();
@@ -1685,6 +1818,7 @@ const monthlyIdentity = useMemo(() => {
       .from("runs")
       .select("*")
       .eq("user_id", session.user.id)
+      .order("date", { ascending: false })
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -2743,21 +2877,56 @@ function renderInsightsPanel() {
         : text.gymType;
 
   const insightFilterControl = (
-    <div style={styles.insightFilterRow}>
-      <label style={styles.insightFilterLabel} htmlFor="insight-activity-type">
-        {text.insightSportFilter}
-      </label>
-      <select
-        id="insight-activity-type"
-        value={insightActivityType}
-        onChange={(e) => setInsightActivityType(e.target.value)}
-        style={styles.insightSelect}
-      >
-        <option value="all">{text.insightAllSports}</option>
-        <option value="run">🏃 {text.runType}</option>
-        <option value="hike">🥾 {text.hikeType}</option>
-        <option value="gym">🏋️ {text.gymType}</option>
-      </select>
+    <div style={styles.insightFilterGrid}>
+      <div style={styles.insightFilterRow}>
+        <label style={styles.insightFilterLabel} htmlFor="insight-activity-type">
+          {text.insightSportFilter}
+        </label>
+        <select
+          id="insight-activity-type"
+          value={insightActivityType}
+          onChange={(e) => setInsightActivityType(e.target.value)}
+          style={styles.insightSelect}
+        >
+          <option value="all">{text.insightAllSports}</option>
+          <option value="run">🏃 {text.runType}</option>
+          <option value="hike">🥾 {text.hikeType}</option>
+          <option value="gym">🏋️ {text.gymType}</option>
+        </select>
+      </div>
+
+      <div style={styles.insightFilterRow}>
+        <label style={styles.insightFilterLabel} htmlFor="insight-date-range">
+          {text.insightDateFilter}
+        </label>
+        <select
+          id="insight-date-range"
+          value={insightDateRange}
+          onChange={(e) => setInsightDateRange(e.target.value)}
+          style={styles.insightSelect}
+        >
+          <option value="30">{text.insightLast30}</option>
+          <option value="90">{text.insightLast90}</option>
+          <option value="year">{text.insightThisYear}</option>
+          <option value="all">{text.insightAllTime}</option>
+        </select>
+      </div>
+
+      <div style={styles.insightFilterRow}>
+        <label style={styles.insightFilterLabel} htmlFor="insight-effort-filter">
+          {text.insightEffortFilter}
+        </label>
+        <select
+          id="insight-effort-filter"
+          value={insightEffortFilter}
+          onChange={(e) => setInsightEffortFilter(e.target.value)}
+          style={styles.insightSelect}
+        >
+          <option value="all">{text.insightAllEfforts}</option>
+          <option value="easy">{text.insightEasyEfforts}</option>
+          <option value="hard">{text.insightHardEfforts}</option>
+        </select>
+      </div>
     </div>
   );
 
@@ -4643,6 +4812,13 @@ statSubtext: {
     fontWeight: "900",
     cursor: "pointer",
     boxShadow: "0 12px 34px rgba(0, 0, 0, 0.18)",
+  },
+
+  insightFilterGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 12,
+    marginBottom: 18,
   },
 
   insightFilterRow: {
