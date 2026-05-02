@@ -637,6 +637,8 @@ export default function App() {
         runType: "Skrējiens",
         gymType: "Zāle",
         hikeType: "Pārgājiens",
+        walkType: "Pastaiga",
+        cycleType: "Velobrauciens",
         distance: "Distance (km)",
         distancePlaceholder: "Piemēram, 5",
         duration: "Ilgums",
@@ -644,6 +646,8 @@ export default function App() {
         durationMinutes: "Minūtes",
         durationSeconds: "Sekundes",
         pace: "Temps",
+        avgSpeed: "Vidējais ātrums",
+        invalidSpeed: "Ievadi distanci un ilgumu, lai redzētu vidējo ātrumu.",
         mood: "Sajūta",
         weather: "Laikapstākļi",
         preSessionState: "Pirms aktivitātes",
@@ -690,6 +694,7 @@ export default function App() {
         distanceLabel: "Distance",
         durationLabel: "Ilgums",
         paceLabel: "Temps",
+        speedLabel: "Vid. ātrums",
         notesLabel: "Piezīmes",
         profileTab: "Profils",
         runsTab: "Aktivitātes",
@@ -719,7 +724,7 @@ export default function App() {
         insightsTitle: "Insight engine",
         insightsSubtitle: "Īss pārskats no taviem aktivitāšu datiem.",
         insightSportFilter: "Sporta veids",
-        insightAllSports: "Skrējieni + pārgājieni",
+        insightAllSports: "Visas distances aktivitātes",
         insightsNotEnough: "Pievieno vismaz 2 aktivitātes ar distanci, lai redzētu jēgpilnus insights.",
         insightsBasedOn: "Balstīts uz",
         insightsActivities: "aktivitātēm",
@@ -817,6 +822,8 @@ export default function App() {
         runType: "Run",
         gymType: "Gym",
         hikeType: "Hike",
+        walkType: "Walk",
+        cycleType: "Cycling",
         distance: "Distance (km)",
         distancePlaceholder: "For example, 5",
         duration: "Duration",
@@ -824,6 +831,8 @@ export default function App() {
         durationMinutes: "Minutes",
         durationSeconds: "Seconds",
         pace: "Pace",
+        avgSpeed: "Average speed",
+        invalidSpeed: "Enter distance and duration to see average speed.",
         mood: "Feeling",
         weather: "Weather",
         preSessionState: "Pre session state",
@@ -870,6 +879,7 @@ export default function App() {
         distanceLabel: "Distance",
         durationLabel: "Duration",
         paceLabel: "Pace",
+        speedLabel: "Avg. speed",
         notesLabel: "Notes",
         profileTab: "Profile",
         runsTab: "Activities",
@@ -899,7 +909,7 @@ export default function App() {
         insightsTitle: "Insight engine",
         insightsSubtitle: "A short readout from your activity data.",
         insightSportFilter: "Sport",
-        insightAllSports: "Runs + hikes",
+        insightAllSports: "All distance activities",
         insightsNotEnough: "Add at least 2 distance-based activities to see useful insights.",
         insightsBasedOn: "Based on",
         insightsActivities: "activities",
@@ -1009,6 +1019,14 @@ const stats = useMemo(() => {
     (activity) => activity.type === "hike"
   );
 
+  const walkActivities = thisMonthActivities.filter(
+    (activity) => activity.type === "walk"
+  );
+
+  const cycleActivities = thisMonthActivities.filter(
+    (activity) => activity.type === "cycle"
+  );
+
   const gymActivities = thisMonthActivities.filter(
     (activity) => activity.type === "gym"
   );
@@ -1047,6 +1065,17 @@ const stats = useMemo(() => {
     return `${minutes}:${String(seconds).padStart(2, "0")} / km`;
   }
 
+  function getAverageSpeed(activities) {
+    const totalDistance = getTotalDistance(activities);
+    const totalDuration = getTotalDuration(activities);
+
+    if (totalDistance <= 0 || totalDuration <= 0) {
+      return "—";
+    }
+
+    return `${(totalDistance / (totalDuration / 60)).toFixed(1)} km/h`;
+  }
+
   function getAverageDuration(activities) {
     if (activities.length === 0) {
       return "—";
@@ -1064,6 +1093,12 @@ const stats = useMemo(() => {
     hikeCount: hikeActivities.length,
     hikeDistance: getTotalDistance(hikeActivities).toFixed(2),
     hikePace: getAveragePace(hikeActivities),
+    walkCount: walkActivities.length,
+    walkDistance: getTotalDistance(walkActivities).toFixed(2),
+    walkPace: getAveragePace(walkActivities),
+    cycleCount: cycleActivities.length,
+    cycleDistance: getTotalDistance(cycleActivities).toFixed(2),
+    cycleSpeed: getAverageSpeed(cycleActivities),
     gymCount: gymActivities.length,
     gymAverageDuration: getAverageDuration(gymActivities),
   };
@@ -1110,7 +1145,7 @@ const insightData = useMemo(() => {
     const type = activity.type || "run";
 
     if (selectedType === "all") {
-      return type === "run" || type === "hike";
+      return type !== "gym";
     }
 
     return type === selectedType;
@@ -1969,10 +2004,12 @@ async function handleSaveProfile(e) {
       if (data.activity_type) {
         const importedType = String(data.activity_type).toLowerCase();
 
-        if (["run", "gym", "hike"].includes(importedType)) {
+        if (["run", "gym", "hike", "walk", "cycle"].includes(importedType)) {
           setActivityType(importedType);
-        } else if (["walk", "walking"].includes(importedType)) {
-          setActivityType("hike");
+        } else if (["walking"].includes(importedType)) {
+          setActivityType("walk");
+        } else if (["bike", "biking", "ride", "cycling", "cycle", "virtual ride"].includes(importedType)) {
+          setActivityType("cycle");
         } else {
           setActivityType("run");
         }
@@ -2335,11 +2372,37 @@ function formatDurationFromMinutes(value) {
     unit === "miles" ? "mi" : "km"
   }`;
 }
+
+function formatSpeed(distanceValue, durationValue) {
+  const distanceNum = parseFloat(String(distanceValue).replace(",", "."));
+  const durationNum = parseFloat(String(durationValue).replace(",", "."));
+
+  if (!distanceNum || !durationNum || distanceNum <= 0 || durationNum <= 0) {
+    return text.invalidSpeed;
+  }
+
+  const distanceForUnit = unit === "miles" ? distanceNum * 0.621371 : distanceNum;
+  const speed = distanceForUnit / (durationNum / 60);
+  return `${speed.toFixed(1)} ${unit === "miles" ? "mph" : "km/h"}`;
+}
+
+function getPerformanceLabel(typeValue) {
+  return (typeValue || "run") === "cycle" ? text.speedLabel : text.paceLabel;
+}
+
+function getPerformanceValue(typeValue, distanceValue, durationValue) {
+  return (typeValue || "run") === "cycle"
+    ? formatSpeed(distanceValue, durationValue)
+    : formatPace(distanceValue, durationValue);
+}
 function getActivityTypeLabel(typeValue) {
   const normalizedType = typeValue || "run";
 
+  if (normalizedType === "all") return text.insightAllSports;
   if (normalizedType === "gym") return text.gymType;
   if (normalizedType === "hike") return text.hikeType;
+  if (normalizedType === "walk") return text.walkType;
+  if (normalizedType === "cycle") return text.cycleType;
   return text.runType;
 }
 
@@ -2545,6 +2608,8 @@ function getShareActivityName(activity) {
   const typeValue = activity?.type || "run";
   if (typeValue === "gym") return language === "lv" ? "Spēka treniņš" : "Strength session";
   if (typeValue === "hike") return language === "lv" ? "Pārgājiens" : "Hike";
+  if (typeValue === "walk") return language === "lv" ? "Pastaiga" : "Walk";
+  if (typeValue === "cycle") return language === "lv" ? "Velobrauciens" : "Cycling";
   return language === "lv" ? "Skrējiens" : "Run";
 }
 
@@ -2552,8 +2617,11 @@ function getShareStats(activity) {
   const typeValue = activity?.type || "run";
   const distanceText = typeValue === "gym" ? "—" : `${convertDistance(activity?.distance)} ${getDistanceUnitLabel()}`;
   const durationText = formatDurationFromMinutes(activity?.duration);
-  const paceText = typeValue === "gym" ? "—" : formatPace(activity?.distance, activity?.duration);
-  return { distanceText, durationText, paceText, typeValue };
+  const performanceText = typeValue === "gym" ? "—" : getPerformanceValue(typeValue, activity?.distance, activity?.duration);
+  const performanceLabel = typeValue === "cycle"
+    ? (language === "lv" ? "VID. ĀTRUMS" : "AVG. SPEED")
+    : (language === "lv" ? "TEMPS" : "PACE");
+  return { distanceText, durationText, performanceText, performanceLabel, typeValue };
 }
 
 async function canvasToPngFile(canvas, fileName) {
@@ -2617,7 +2685,7 @@ function createActivityStatsCanvas(activity, commentText, useInlineComment) {
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
-  const { distanceText, durationText, paceText, typeValue } = getShareStats(activity);
+  const { distanceText, durationText, performanceText, performanceLabel, typeValue } = getShareStats(activity);
   const activityName = getShareActivityName(activity);
   const activityDate = formatDate(activity?.date).toUpperCase();
   const moodText = activity?.mood || "";
@@ -2675,7 +2743,7 @@ function createActivityStatsCanvas(activity, commentText, useInlineComment) {
     const gap = 44;
     const statsToDraw = [
       { label: language === "lv" ? "LAIKS" : "TIME", value: durationText },
-      { label: language === "lv" ? "TEMPS" : "PACE", value: paceText.replace(" / ", "/") },
+      { label: performanceLabel, value: performanceText.replace(" / ", "/") },
     ];
     statsToDraw.forEach((stat, index) => {
       const x = 128 + index * (statW + gap);
@@ -2803,7 +2871,7 @@ function handleExportCsv() {
     "distance_km",
     "duration_minutes",
     "duration_formatted",
-    "pace",
+    "pace_or_avg_speed",
     "mood",
     "weather",
     "pre_session_state",
@@ -2814,7 +2882,7 @@ function handleExportCsv() {
 
   const rows = filteredRuns.map((run) => {
     const durationMinutes = run.duration ?? "";
-    const paceValue = (run.type || "run") === "gym" ? "" : formatPace(run.distance, run.duration);
+    const paceValue = (run.type || "run") === "gym" ? "" : getPerformanceValue(run.type, run.distance, run.duration);
 
     return [
       run.date || "",
@@ -2989,13 +3057,7 @@ function renderMonthlyIdentityCard() {
 }
 
 function renderInsightsPanel() {
-  const selectedInsightLabel = insightActivityType === "all"
-    ? text.insightAllSports
-    : insightActivityType === "run"
-      ? text.runType
-      : insightActivityType === "hike"
-        ? text.hikeType
-        : text.gymType;
+  const selectedInsightLabel = getActivityTypeLabel(insightActivityType);
 
   const insightFilterControl = (
     <div style={styles.insightFilterRow}>
@@ -3011,6 +3073,8 @@ function renderInsightsPanel() {
         <option value="all">{text.insightAllSports}</option>
         <option value="run">🏃 {text.runType}</option>
         <option value="hike">🥾 {text.hikeType}</option>
+        <option value="walk">🚶 {text.walkType}</option>
+        <option value="cycle">🚴 {text.cycleType}</option>
         <option value="gym">🏋️ {text.gymType}</option>
       </select>
     </div>
@@ -3857,6 +3921,20 @@ function renderInsightsPanel() {
           </div>
 
           <div style={styles.statCard}>
+            <div style={styles.statLabel}>🚶 {text.walkType}</div>
+            <div className="runology-stat-value" style={styles.statValue}>{stats.walkCount}</div>
+            <div style={styles.statSubtext}>{stats.walkDistance} km</div>
+            <div style={styles.statSubtext}>{stats.walkPace}</div>
+          </div>
+
+          <div style={styles.statCard}>
+            <div style={styles.statLabel}>🚴 {text.cycleType}</div>
+            <div className="runology-stat-value" style={styles.statValue}>{stats.cycleCount}</div>
+            <div style={styles.statSubtext}>{stats.cycleDistance} km</div>
+            <div style={styles.statSubtext}>{stats.cycleSpeed}</div>
+          </div>
+
+          <div style={styles.statCard}>
             <div style={styles.statLabel}>🏋️ {text.gymType}</div>
             <div className="runology-stat-value" style={styles.statValue}>{stats.gymCount}</div>
             <div style={styles.statSubtext}>
@@ -3972,6 +4050,8 @@ function renderInsightsPanel() {
                   <option value="run">🏃 {text.runType}</option>
                   <option value="gym">🏋️ {text.gymType}</option>
                   <option value="hike">🥾 {text.hikeType}</option>
+                  <option value="walk">🚶 {text.walkType}</option>
+                  <option value="cycle">🚴 {text.cycleType}</option>
                 </select>
 
                 <label style={styles.label}>{text.date}</label>
@@ -4044,9 +4124,9 @@ function renderInsightsPanel() {
 
                 {activityType !== "gym" && (
                   <div style={styles.pacePreviewBox}>
-                    <span style={styles.infoLabel}>{text.pace}</span>
+                    <span style={styles.infoLabel}>{activityType === "cycle" ? text.avgSpeed : text.pace}</span>
                     <div style={styles.pacePreviewValue}>
-                      {formatPace(distance, durationPartsToMinutes(durationHours, durationMinutes, durationSeconds))}
+                      {getPerformanceValue(activityType, distance, durationPartsToMinutes(durationHours, durationMinutes, durationSeconds))}
                     </div>
                   </div>
                 )}
@@ -4219,6 +4299,20 @@ function renderInsightsPanel() {
                   >
                     🥾 {text.hikeType}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityFilter("walk")}
+                    style={activityFilter === "walk" ? styles.activityFilterButtonActive : styles.activityFilterButton}
+                  >
+                    🚶 {text.walkType}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityFilter("cycle")}
+                    style={activityFilter === "cycle" ? styles.activityFilterButtonActive : styles.activityFilterButton}
+                  >
+                    🚴 {text.cycleType}
+                  </button>
                 </div>
               </div>
 
@@ -4257,6 +4351,8 @@ function renderInsightsPanel() {
                             {runType === "run" && `🏃 ${text.runType}`}
                             {runType === "gym" && `🏋️ ${text.gymType}`}
                             {runType === "hike" && `🥾 ${text.hikeType}`}
+                            {runType === "walk" && `🚶 ${text.walkType}`}
+                            {runType === "cycle" && `🚴 ${text.cycleType}`}
                           </div>
                         </div>
 
@@ -4299,9 +4395,9 @@ function renderInsightsPanel() {
 
                           {runType !== "gym" && (
                             <div style={styles.infoBlock}>
-                              <span style={styles.infoLabel}>{text.paceLabel}</span>
+                              <span style={styles.infoLabel}>{getPerformanceLabel(runType)}</span>
                               <span style={styles.infoValue}>
-                                {formatPace(run.distance, run.duration)}
+                                {getPerformanceValue(runType, run.distance, run.duration)}
                               </span>
                             </div>
                           )}
